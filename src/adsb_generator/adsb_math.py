@@ -62,3 +62,13 @@ class ADSBMath():
         xz = int(round((rem_lon / dlon) * factor)) & (factor - 1)
 
         return yz, xz
+
+    @staticmethod
+    def encode_altitude(alt: int) -> int:
+        alt_clamped = max(-1000, min(50100, alt))
+        n = (alt_clamped + 1000) // 25
+
+        top_bits = (n >> 4) & 0x7F
+        bottom_bits = n & 0x0F
+
+        return (top_bits << 5) | (1 << 4) | bottom_bits
