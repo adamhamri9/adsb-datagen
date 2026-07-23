@@ -63,6 +63,22 @@ class ADSBMessage():
         return ((tc << 51) | (mov << 44) | (s << 43) | (trk << 36) |
         (t << 35) | (f << 34) | (lat_cpr << 17) | lon_cpr)
 
+    def _build_airborne_position_message(self) -> int:
+        tc = random.choice([random.randint(9, 18), random.randint(20, 22)])
+        ss = random.randint(0 ,3)
+        saf = random.choice([0, 1])
+
+        alt = ADSBMath.encode_altitude(random.randint(500, 45000))
+
+        t = random.choices([1, 0], [0.9, 0.1], k=1)[0]
+
+        f = random.randint(0, 1)
+        lat_cpr, lon_cpr = ADSBMath().encode_cpr(random.uniform(-90, 90), random.uniform(-180, 180), (f == 1))
+
+        return ((tc << 51) | (ss << 49) | (saf << 48) | (alt << 36) |
+                (t << 35) | (f << 34) | (lat_cpr << 17) | lon_cpr)
+
+
     def build(self) -> int:
         types = list(self.message_type_probs.keys())
         weights = list(self.message_type_probs.values())
@@ -78,7 +94,7 @@ class ADSBMessage():
         elif selected_type == ADSBMessageType.SURFACE_POSITION:
             me = self._build_surface_position_message()
         elif selected_type == ADSBMessageType.AIRBORNE_POSITION:
-            pass
+            me = self._build_airborne_position_message()
         elif selected_type == ADSBMessageType.AIRBORNE_VELOCITY:
             pass
 

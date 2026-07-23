@@ -199,6 +199,70 @@ class TestBuildSurfacePositionMessage:
         assert len(f_values) > 1
 
 
+class TestBuildAirbornePositionMessage:
+    def setup_method(self):
+        self.msg = ADSBMessage()
+
+    def test_returns_int(self):
+        result = self.msg._build_airborne_position_message()
+        assert isinstance(result, int)
+
+    def test_fits_in_56_bits(self):
+        result = self.msg._build_airborne_position_message()
+        assert result < (1 << 56)
+
+    def test_tc_in_valid_range(self):
+        for _ in range(200):
+            result = self.msg._build_airborne_position_message()
+            tc = (result >> 51) & 0x1F
+            assert tc in range(9, 19) or tc in range(20, 23)
+
+    def test_ss_in_valid_range(self):
+        for _ in range(100):
+            result = self.msg._build_airborne_position_message()
+            ss = (result >> 49) & 0x3
+            assert 0 <= ss <= 3
+
+    def test_saf_is_boolean(self):
+        for _ in range(50):
+            result = self.msg._build_airborne_position_message()
+            saf = (result >> 48) & 0x1
+            assert saf in (0, 1)
+
+    def test_t_bit_is_boolean(self):
+        for _ in range(50):
+            result = self.msg._build_airborne_position_message()
+            t = (result >> 35) & 0x1
+            assert t in (0, 1)
+
+    def test_f_bit_is_boolean(self):
+        for _ in range(50):
+            result = self.msg._build_airborne_position_message()
+            f = (result >> 34) & 0x1
+            assert f in (0, 1)
+
+    def test_tc_excludes_19(self):
+        tc_values = set()
+        for _ in range(500):
+            result = self.msg._build_airborne_position_message()
+            tc_values.add((result >> 51) & 0x1F)
+        assert 19 not in tc_values
+
+    def test_multiple_calls_produce_varied_tc(self):
+        tc_values = set()
+        for _ in range(200):
+            result = self.msg._build_airborne_position_message()
+            tc_values.add((result >> 51) & 0x1F)
+        assert len(tc_values) > 1
+
+    def test_multiple_calls_produce_varied_f(self):
+        f_values = set()
+        for _ in range(100):
+            result = self.msg._build_airborne_position_message()
+            f_values.add((result >> 34) & 0x1)
+        assert len(f_values) > 1
+
+
 class TestBuild:
     IDENT_ONLY = {
         ADSBMessageType.IDENTIFICATION: 1.0,
