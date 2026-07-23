@@ -1,4 +1,6 @@
+import random
 from enum import Enum
+from .adsb_math import ADSBMath
 
 class ADSBMessageType(Enum):
     IDENTIFICATION = "identification"
@@ -25,3 +27,29 @@ class ADSBMessage():
             raise ValueError(
                 f"Sum of probabilities must equal 1.0, got {total}"
             )
+
+    def build(self) -> int:
+        types = list(self.message_type_probs.keys())
+        weights = list(self.message_type_probs.values())
+        selected_type = random.choices(types, weights, k=1)[0]
+
+        df = 17                       
+        ca = random.randint(0, 7)        
+        icao = random.getrandbits(24)     
+
+        if selected_type == ADSBMessageType.IDENTIFICATION:
+            pass  
+        elif selected_type == ADSBMessageType.SURFACE_POSITION:
+            pass
+        elif selected_type == ADSBMessageType.AIRBORNE_POSITION:
+            pass
+        elif selected_type == ADSBMessageType.AIRBORNE_VELOCITY:
+            pass
+        else:
+            pass
+
+        random_me = random.getrandbits(56) # random message for testing
+
+        data = (df << 83) | (ca << 80) | (icao << 56) | random_me
+
+        return ADSBMath().calculate_crc(data)      
