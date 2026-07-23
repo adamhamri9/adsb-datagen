@@ -1,4 +1,5 @@
 import random
+import string
 from enum import Enum
 from .adsb_math import ADSBMath
 
@@ -21,12 +22,35 @@ class ADSBMessage():
         self.message_type_probs = message_type_probs or default_probs
         self._validate_probailities()
 
+        self._CALLSIGN_CHARSET = {
+            " ": 0,
+            **{chr(ord("A") + i): i + 1 for i in range(26)},
+            **{str(i): 48 + i for i in range(10)},
+        }
+
+
     def _validate_probailities(self):
         total= sum(self.message_type_probs.values())
         if not (0.99 <= total <= 1.01):
             raise ValueError(
                 f"Sum of probabilities must equal 1.0, got {total}"
             )
+
+    def _build_identification_message(self):
+        tc = random.randint(1, 4)
+        ca = random.randint(0, 7)
+
+        prefix = "".join(random.choices(string.ascii_uppercase, k=3))
+        digits = str(random.randint(10, 99999))
+        callsign = (prefix + digits).ljust(8, " ")[:8]
+
+        callsign_48bit = 0
+        for char in callsign:
+            code = self._CALLSIGN_CHARSET.get(char, 0)
+            callsign_48bit = (callsign_48bit << 6) | (code & 0x3F)
+
+        return (tc << 51) | (ca << 48) | callsign_48bit
+
 
     def build(self) -> int:
         types = list(self.message_type_probs.keys())
@@ -38,18 +62,14 @@ class ADSBMessage():
         icao = random.getrandbits(24)     
 
         if selected_type == ADSBMessageType.IDENTIFICATION:
-            pass  
+            me = self._build_identification_message()  
         elif selected_type == ADSBMessageType.SURFACE_POSITION:
             pass
         elif selected_type == ADSBMessageType.AIRBORNE_POSITION:
             pass
         elif selected_type == ADSBMessageType.AIRBORNE_VELOCITY:
             pass
-        else:
-            pass
 
-        random_me = random.getrandbits(56) # random message for testing
-
-        data = (df << 83) | (ca << 80) | (icao << 56) | random_me
+        data = (df << 83) | (ca << 80) | (icao << 56) | me
 
         return ADSBMath().calculate_crc(data)      
