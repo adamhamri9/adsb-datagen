@@ -59,7 +59,8 @@ class ADSBMessage():
 
         df = 17                       
         ca = random.randint(0, 7)        
-        icao = random.getrandbits(24)     
+        icao = random.getrandbits(24)   
+        me = 0  
 
         if selected_type == ADSBMessageType.IDENTIFICATION:
             me = self._build_identification_message()  
@@ -72,4 +73,4 @@ class ADSBMessage():
 
         data = (df << 83) | (ca << 80) | (icao << 56) | me
 
-        return ADSBMath().calculate_crc(data)      
+        return ADSBMath().calculate_crc(data)

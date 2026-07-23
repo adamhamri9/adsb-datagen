@@ -87,3 +87,117 @@ class TestADSBMessageProbabilities:
         }
         with pytest.raises(ValueError):
             ADSBMessage(message_type_probs=bad)
+
+
+class TestBuildIdentificationMessage:
+    def setup_method(self):
+        self.msg = ADSBMessage()
+
+    def test_returns_int(self):
+        result = self.msg._build_identification_message()
+        assert isinstance(result, int)
+
+    def test_tc_in_valid_range(self):
+        result = self.msg._build_identification_message()
+        tc = (result >> 51) & 0x7
+        assert 1 <= tc <= 4
+
+    def test_ca_in_valid_range(self):
+        result = self.msg._build_identification_message()
+        ca = (result >> 48) & 0x7
+        assert 0 <= ca <= 7
+
+    def test_fits_in_56_bits(self):
+        result = self.msg._build_identification_message()
+        assert result < (1 << 56)
+
+    def test_is_non_negative(self):
+        result = self.msg._build_identification_message()
+        assert result >= 0
+
+    def test_multiple_calls_produce_varied_tc(self):
+        tc_values = set()
+        for _ in range(100):
+            result = self.msg._build_identification_message()
+            tc_values.add((result >> 51) & 0x7)
+        assert len(tc_values) > 1
+
+    def test_multiple_calls_produce_varied_ca(self):
+        ca_values = set()
+        for _ in range(100):
+            result = self.msg._build_identification_message()
+            ca_values.add((result >> 48) & 0x7)
+        assert len(ca_values) > 1
+
+    def test_callsign_encoding_occupies_lower_48_bits(self):
+        result = self.msg._build_identification_message()
+        callsign_bits = result & 0xFFFFFFFFFFFF
+        assert callsign_bits < (1 << 48)
+
+
+class TestBuild:
+    IDENT_ONLY = {
+        ADSBMessageType.IDENTIFICATION: 1.0,
+        ADSBMessageType.SURFACE_POSITION: 0.0,
+        ADSBMessageType.AIRBORNE_POSITION: 0.0,
+        ADSBMessageType.AIRBORNE_VELOCITY: 0.0,
+    }
+
+    def setup_method(self):
+        self.msg = ADSBMessage(message_type_probs=self.IDENT_ONLY)
+
+    def test_returns_int(self):
+        result = self.msg.build()
+        assert isinstance(result, int)
+
+    def test_result_is_112_bits(self):
+        result = self.msg.build()
+        assert 0 <= result < (1 << 112)
+
+    def test_df_field_is_17(self):
+        result = self.msg.build()
+        df = (result >> 107) & 0x1F
+        assert df == 17
+
+    def test_ca_field_in_valid_range(self):
+        result = self.msg.build()
+        ca = (result >> 104) & 0x7
+        assert 0 <= ca <= 7
+
+    def test_icao_field_fits_24_bits(self):
+        result = self.msg.build()
+        icao = (result >> 80) & 0xFFFFFF
+        assert 0 <= icao < (1 << 24)
+
+    def test_returns_unique_values(self):
+        results = {self.msg.build() for _ in range(20)}
+        assert len(results) > 1
+
+    def test_identification_tc_in_valid_range(self):
+        for _ in range(50):
+            result = self.msg.build()
+            me = (result >> 24) & 0xFFFFFFFFFFFFFF
+            tc = (me >> 51) & 0x7
+            assert 1 <= tc <= 4
+
+    def test_identification_ca_in_valid_range(self):
+        for _ in range(50):
+            result = self.msg.build()
+            me = (result >> 24) & 0xFFFFFFFFFFFFFF
+            ca = (me >> 48) & 0x7
+            assert 0 <= ca <= 7
+
+    def test_identification_callsign_fits_48_bits(self):
+        for _ in range(20):
+            result = self.msg.build()
+            me = (result >> 24) & 0xFFFFFFFFFFFFFF
+            callsign = me & 0xFFFFFFFFFFFF
+            assert callsign < (1 << 48)
+
+    def test_crc_is_valid(self):
+        from src.adsb_generator.adsb_math import ADSBMath
+        for _ in range(20):
+            result = self.msg.build()
+            data_without_crc = result >> 24
+            recalc = ADSBMath.calculate_crc(data_without_crc)
+            assert recalc == result
