@@ -72,3 +72,13 @@ class ADSBMath():
         bottom_bits = n & 0x0F
 
         return (top_bits << 5) | (1 << 4) | bottom_bits
+
+    @staticmethod
+    def encode_ground_track(degrees: float, valid: bool = True) -> tuple[int, int]:
+        if not valid or degrees is None:
+            return 0, 0
+
+        degrees = degrees % 360.0
+        trk_code = round(degrees * 128.0 / 360.0)
+
+        return 1, trk_code
