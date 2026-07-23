@@ -36,7 +36,7 @@ class ADSBMessage():
                 f"Sum of probabilities must equal 1.0, got {total}"
             )
 
-    def _build_identification_message(self):
+    def _build_identification_message(self) -> int:
         tc = random.randint(1, 4)
         ca = random.randint(0, 7)
 
@@ -51,6 +51,17 @@ class ADSBMessage():
 
         return (tc << 51) | (ca << 48) | callsign_48bit
 
+    def _build_surface_position_message(self) -> int:
+        tc = random.randint(5, 8)
+        mov = random.randint(0, 127)
+        s, trk = ADSBMath().encode_ground_track(random.uniform(0, 360), random.choice([True, False]))
+        t = random.choices([1, 0], [0.9, 0.1], k=1)[0]
+
+        f = random.randint(0, 1)
+        lat_cpr, lon_cpr = ADSBMath().encode_cpr(random.uniform(-90, 90), random.uniform(-180, 180), (f == 1))
+
+        return ((tc << 51) | (mov << 44) | (s << 43) | (trk << 36) |
+        (t << 35) | (f << 34) | (lat_cpr << 17) | lon_cpr)
 
     def build(self) -> int:
         types = list(self.message_type_probs.keys())
@@ -65,7 +76,7 @@ class ADSBMessage():
         if selected_type == ADSBMessageType.IDENTIFICATION:
             me = self._build_identification_message()  
         elif selected_type == ADSBMessageType.SURFACE_POSITION:
-            pass
+            me = self._build_surface_position_message()
         elif selected_type == ADSBMessageType.AIRBORNE_POSITION:
             pass
         elif selected_type == ADSBMessageType.AIRBORNE_VELOCITY:

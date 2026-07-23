@@ -135,6 +135,70 @@ class TestBuildIdentificationMessage:
         assert callsign_bits < (1 << 48)
 
 
+class TestBuildSurfacePositionMessage:
+    def setup_method(self):
+        self.msg = ADSBMessage()
+
+    def test_returns_int(self):
+        result = self.msg._build_surface_position_message()
+        assert isinstance(result, int)
+
+    def test_fits_in_56_bits(self):
+        result = self.msg._build_surface_position_message()
+        assert result < (1 << 56)
+
+    def test_tc_in_valid_range(self):
+        for _ in range(100):
+            result = self.msg._build_surface_position_message()
+            tc = (result >> 51) & 0x1F
+            assert 5 <= tc <= 8
+
+    def test_mov_in_valid_range(self):
+        for _ in range(100):
+            result = self.msg._build_surface_position_message()
+            mov = (result >> 44) & 0x7F
+            assert 0 <= mov <= 127
+
+    def test_s_bit_is_boolean(self):
+        for _ in range(50):
+            result = self.msg._build_surface_position_message()
+            s = (result >> 43) & 0x1
+            assert s in (0, 1)
+
+    def test_t_bit_is_boolean(self):
+        for _ in range(50):
+            result = self.msg._build_surface_position_message()
+            t = (result >> 35) & 0x1
+            assert t in (0, 1)
+
+    def test_f_bit_is_boolean(self):
+        for _ in range(50):
+            result = self.msg._build_surface_position_message()
+            f = (result >> 34) & 0x1
+            assert f in (0, 1)
+
+    def test_multiple_calls_produce_varied_tc(self):
+        tc_values = set()
+        for _ in range(100):
+            result = self.msg._build_surface_position_message()
+            tc_values.add((result >> 51) & 0x7)
+        assert len(tc_values) > 1
+
+    def test_multiple_calls_produce_varied_mov(self):
+        mov_values = set()
+        for _ in range(100):
+            result = self.msg._build_surface_position_message()
+            mov_values.add((result >> 44) & 0x7F)
+        assert len(mov_values) > 1
+
+    def test_multiple_calls_produce_varied_f(self):
+        f_values = set()
+        for _ in range(100):
+            result = self.msg._build_surface_position_message()
+            f_values.add((result >> 34) & 0x1)
+        assert len(f_values) > 1
+
+
 class TestBuild:
     IDENT_ONLY = {
         ADSBMessageType.IDENTIFICATION: 1.0,
