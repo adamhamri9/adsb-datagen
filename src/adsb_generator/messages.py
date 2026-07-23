@@ -54,11 +54,11 @@ class ADSBMessage():
     def _build_surface_position_message(self) -> int:
         tc = random.randint(5, 8)
         mov = random.randint(0, 127)
-        s, trk = ADSBMath().encode_ground_track(random.uniform(0, 360), random.choice([True, False]))
+        s, trk = ADSBMath.encode_ground_track(random.uniform(0, 360), random.choice([True, False]))
         t = random.choices([1, 0], [0.9, 0.1], k=1)[0]
 
         f = random.randint(0, 1)
-        lat_cpr, lon_cpr = ADSBMath().encode_cpr(random.uniform(-90, 90), random.uniform(-180, 180), (f == 1))
+        lat_cpr, lon_cpr = ADSBMath.encode_cpr(random.uniform(-90, 90), random.uniform(-180, 180), (f == 1))
 
         return ((tc << 51) | (mov << 44) | (s << 43) | (trk << 36) |
         (t << 35) | (f << 34) | (lat_cpr << 17) | lon_cpr)
@@ -73,7 +73,7 @@ class ADSBMessage():
         t = random.choices([1, 0], [0.9, 0.1], k=1)[0]
 
         f = random.randint(0, 1)
-        lat_cpr, lon_cpr = ADSBMath().encode_cpr(random.uniform(-90, 90), random.uniform(-180, 180), (f == 1))
+        lat_cpr, lon_cpr = ADSBMath.encode_cpr(random.uniform(-90, 90), random.uniform(-180, 180), (f == 1))
 
         return ((tc << 51) | (ss << 49) | (saf << 48) | (alt << 36) |
                 (t << 35) | (f << 34) | (lat_cpr << 17) | lon_cpr)
@@ -100,4 +100,4 @@ class ADSBMessage():
 
         data = (df << 83) | (ca << 80) | (icao << 56) | me
 
-        return ADSBMath().calculate_crc(data)
+        return ADSBMath.calculate_crc(data)
