@@ -78,6 +78,39 @@ class ADSBMessage():
         return ((tc << 51) | (ss << 49) | (saf << 48) | (alt << 36) |
                 (t << 35) | (f << 34) | (lat_cpr << 17) | lon_cpr)
 
+    def _build_airborne_velocity_message(self) -> int:
+        tc = 19
+        st = random.randint(1, 4)
+        ic = random.choice([0, 1])
+        ifr = random.choice([0, 1])
+        nucv = random.randint(0, 4)
+
+        subtype = 0
+        if st in [1, 2]:
+            dew = random.choice([0, 1])
+            vew = (random.randint(0, 1021) + 1) if st == 1 else (int(random.choice([x for x in range(0, 4085, 4)]) / 4) + 1)
+            dns = random.choice([0, 1])
+            vns = (random.randint(0, 1021) + 1) if st == 1 else (int(random.choice([x for x in range(0, 4085, 4)]) / 4) + 1)
+            
+            subtype = (dew << 21) | (vew << 11) | (dns << 10) | vns
+        else:
+            sh = random.choice([0, 1])
+            hdg = round((random.uniform(0.0, 360.0) * 1024) / 360) % 1024
+            t = random.choice([0, 1])
+            ais = (random.randint(0, 1021) + 1) if st == 3 else (int(random.choice([x for x in range(0, 4085, 4)]) / 4) + 1)
+
+            subtype = (sh << 21) | (hdg << 11) | (t << 10) | ais
+
+        vrsrc = random.choice([0, 1])
+        svr = random.choice([0, 1])
+        vr = int(random.choice([x for x in range(0, 32641, 64)]) / 64) + 1
+        res = 0
+        sdif = random.choice([0, 1])
+        dalt = int(random.choice([x for x in range(0, 3151, 25)]) / 25) + 1
+
+        return ((tc << 51) | (st << 48) | (ic << 47) | (ifr << 46) | (nucv << 43) |
+                (subtype << 21) | (vrsrc << 20) | (svr << 19) | (vr << 10) | (res << 8) | (sdif << 7) | dalt)
+
 
     def build(self) -> int:
         types = list(self.message_type_probs.keys())
@@ -96,7 +129,7 @@ class ADSBMessage():
         elif selected_type == ADSBMessageType.AIRBORNE_POSITION:
             me = self._build_airborne_position_message()
         elif selected_type == ADSBMessageType.AIRBORNE_VELOCITY:
-            pass
+            me = self._build_airborne_velocity_message()
 
         data = (df << 83) | (ca << 80) | (icao << 56) | me
 

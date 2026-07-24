@@ -263,6 +263,150 @@ class TestBuildAirbornePositionMessage:
         assert len(f_values) > 1
 
 
+class TestBuildAirborneVelocityMessage:
+    def setup_method(self):
+        self.msg = ADSBMessage()
+
+    def test_returns_int(self):
+        result = self.msg._build_airborne_velocity_message()
+        assert isinstance(result, int)
+
+    def test_fits_in_56_bits(self):
+        result = self.msg._build_airborne_velocity_message()
+        assert result < (1 << 56)
+
+    def test_tc_is_always_19(self):
+        for _ in range(100):
+            result = self.msg._build_airborne_velocity_message()
+            tc = (result >> 51) & 0x1F
+            assert tc == 19
+
+    def test_st_in_valid_range(self):
+        for _ in range(100):
+            result = self.msg._build_airborne_velocity_message()
+            st = (result >> 48) & 0x7
+            assert 1 <= st <= 4
+
+    def test_ic_is_boolean(self):
+        for _ in range(50):
+            result = self.msg._build_airborne_velocity_message()
+            ic = (result >> 47) & 0x1
+            assert ic in (0, 1)
+
+    def test_ifr_is_boolean(self):
+        for _ in range(50):
+            result = self.msg._build_airborne_velocity_message()
+            ifr = (result >> 46) & 0x1
+            assert ifr in (0, 1)
+
+    def test_nucv_in_valid_range(self):
+        for _ in range(100):
+            result = self.msg._build_airborne_velocity_message()
+            nucv = (result >> 43) & 0x7
+            assert 0 <= nucv <= 4
+
+    def test_vrsrc_is_boolean(self):
+        for _ in range(50):
+            result = self.msg._build_airborne_velocity_message()
+            vrsrc = (result >> 20) & 0x1
+            assert vrsrc in (0, 1)
+
+    def test_svr_is_boolean(self):
+        for _ in range(50):
+            result = self.msg._build_airborne_velocity_message()
+            svr = (result >> 19) & 0x1
+            assert svr in (0, 1)
+
+    def test_res_is_always_zero(self):
+        for _ in range(50):
+            result = self.msg._build_airborne_velocity_message()
+            res = (result >> 8) & 0x3
+            assert res == 0
+
+    def test_sdif_is_boolean(self):
+        for _ in range(50):
+            result = self.msg._build_airborne_velocity_message()
+            sdif = (result >> 7) & 0x1
+            assert sdif in (0, 1)
+
+    def test_multiple_calls_produce_varied_st(self):
+        st_values = set()
+        for _ in range(200):
+            result = self.msg._build_airborne_velocity_message()
+            st_values.add((result >> 48) & 0x7)
+        assert len(st_values) > 1
+
+    def test_subtype_fits_22_bits(self):
+        for _ in range(100):
+            result = self.msg._build_airborne_velocity_message()
+            subtype = (result >> 21) & 0x3FFFFF
+            assert subtype < (1 << 22)
+
+    def test_ground_speed_vew_dns_vns_fields_st1(self):
+        for _ in range(100):
+            result = self.msg._build_airborne_velocity_message()
+            st = (result >> 48) & 0x7
+            if st != 1:
+                continue
+            subtype = (result >> 21) & 0x3FFFFF
+            dew = (subtype >> 21) & 0x1
+            vew = (subtype >> 11) & 0x3FF
+            dns = (subtype >> 10) & 0x1
+            vns = subtype & 0x3FF
+            assert dew in (0, 1)
+            assert dns in (0, 1)
+            assert 1 <= vew <= 1022
+            assert 1 <= vns <= 1022
+
+    def test_ground_speed_vew_dns_vns_fields_st2(self):
+        for _ in range(100):
+            result = self.msg._build_airborne_velocity_message()
+            st = (result >> 48) & 0x7
+            if st != 2:
+                continue
+            subtype = (result >> 21) & 0x3FFFFF
+            dew = (subtype >> 21) & 0x1
+            vew = (subtype >> 11) & 0x3FF
+            dns = (subtype >> 10) & 0x1
+            vns = subtype & 0x3FF
+            assert dew in (0, 1)
+            assert dns in (0, 1)
+            assert 1 <= vew <= 1022
+            assert 1 <= vns <= 1022
+
+    def test_airspeed_hdg_t_ais_fields_st3(self):
+        for _ in range(100):
+            result = self.msg._build_airborne_velocity_message()
+            st = (result >> 48) & 0x7
+            if st != 3:
+                continue
+            subtype = (result >> 21) & 0x3FFFFF
+            sh = (subtype >> 21) & 0x1
+            hdg = (subtype >> 11) & 0x3FF
+            t = (subtype >> 10) & 0x1
+            ais = subtype & 0x3FF
+            assert sh in (0, 1)
+            assert t in (0, 1)
+            assert 0 <= hdg <= 1023
+            assert 1 <= ais <= 1022
+
+    def test_airspeed_hdg_t_ais_fields_st4(self):
+        for _ in range(100):
+            result = self.msg._build_airborne_velocity_message()
+            st = (result >> 48) & 0x7
+            if st != 4:
+                continue
+            subtype = (result >> 21) & 0x3FFFFF
+            sh = (subtype >> 21) & 0x1
+            hdg = (subtype >> 11) & 0x3FF
+            t = (subtype >> 10) & 0x1
+            ais = subtype & 0x3FF
+            assert sh in (0, 1)
+            assert t in (0, 1)
+            assert 0 <= hdg <= 1023
+            assert 1 <= ais <= 1022
+
+
 class TestBuild:
     IDENT_ONLY = {
         ADSBMessageType.IDENTIFICATION: 1.0,
