@@ -30,6 +30,16 @@ class ADSBMessage():
 
 
     def _validate_probailities(self):
+        valid_types = set(item for item in ADSBMessageType)
+        valid_values = set(item.value for item in ADSBMessageType)
+
+        for msg_type in self.message_type_probs.keys():
+            if msg_type not in valid_types and msg_type not in valid_values:
+                raise ValueError(
+                    f"Invalid message type key: '{msg_type}'. "
+                    f"Valid options are the ADSBMessageType enums or: {valid_values}"
+                )
+            
         total= sum(self.message_type_probs.values())
         if not (0.99 <= total <= 1.01):
             raise ValueError(
