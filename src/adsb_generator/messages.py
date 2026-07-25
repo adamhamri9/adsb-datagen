@@ -20,7 +20,7 @@ class ADSBMessage():
         }
 
         self.message_type_probs = message_type_probs or default_probs
-        self._validate_probailities()
+        self._validate_probabilities()
 
         self._CALLSIGN_CHARSET = {
             " ": 0,
@@ -29,7 +29,7 @@ class ADSBMessage():
         }
 
 
-    def _validate_probailities(self):
+    def _validate_probabilities(self):
         valid_types = set(item for item in ADSBMessageType)
         valid_values = set(item.value for item in ADSBMessageType)
 
