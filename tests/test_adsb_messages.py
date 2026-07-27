@@ -1,6 +1,6 @@
 import pytest
 
-from src.adsb_generator.messages import ADSBMessage, ADSBMessageType
+from src.adsb_generator.message import ADSBMessage, ADSBMessageType
 
 
 class TestADSBMessageType:
