@@ -5,7 +5,6 @@ from .adsb_math import ADSBMath
 
 class ADSBMessageType(Enum):
     """Supported Automatic Dependent Surveillance-Broadcast (ADS-B) message types."""
-    
     IDENTIFICATION = "identification"
     SURFACE_POSITION = "surface_position"
     AIRBORNE_POSITION = "airborne_position"
@@ -22,8 +21,10 @@ class ADSBMessage():
     Attributes:
         message_type_probs (dict[ADSBMessageType | str, float]): Mapping of message 
             types to their selection probabilities.
+        seed: int | None = None: Seed for the internal random number generator to ensure reproducible 
+            message output.
     """
-    def __init__(self, message_type_probs: dict = None):
+    def __init__(self, message_type_probs: dict = None, seed: int | None = None):
         """
         Initializes the instance with message type probabilities.
 
@@ -32,6 +33,8 @@ class ADSBMessage():
                 emission probabilities. If None, defaults to an equal 25% distribution 
                 across IDENTIFICATION, SURFACE_POSITION, AIRBORNE_POSITION, and 
                 AIRBORNE_VELOCITY.
+            seed: Seed for the internal random number generator to ensure reproducible 
+                message output. If None, the generator is seeded from system randomness.
 
         Raises:
             ValueError: If `message_type_probs` contains invalid probability values 
@@ -48,11 +51,19 @@ class ADSBMessage():
         self.message_type_probs = message_type_probs or default_probs
         self._validate_probabilities()
 
+        self._seed = self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+        self._rng = random.Random(seed)
+
         self._CALLSIGN_CHARSET = {
             " ": 0,
             **{chr(ord("A") + i): i + 1 for i in range(26)},
             **{str(i): 48 + i for i in range(10)},
         }
+
+    @property
+    def seed(self) -> int | None:
+        """Gets the seed value passed at initialization."""
+        return self._seed
 
 
     def _validate_probabilities(self):
@@ -73,11 +84,11 @@ class ADSBMessage():
             )
 
     def _build_identification_message(self) -> int:
-        tc = random.randint(1, 4)
-        ca = random.randint(0, 7)
+        tc = self._rng.randint(1, 4)
+        ca = self._rng.randint(0, 7)
 
-        prefix = "".join(random.choices(string.ascii_uppercase, k=3))
-        digits = str(random.randint(10, 99999))
+        prefix = "".join(self._rng.choices(string.ascii_uppercase, k=3))
+        digits = str(self._rng.randint(10, 99999))
         callsign = (prefix + digits).ljust(8, " ")[:8]
 
         callsign_48bit = 0
@@ -88,61 +99,61 @@ class ADSBMessage():
         return (tc << 51) | (ca << 48) | callsign_48bit
 
     def _build_surface_position_message(self) -> int:
-        tc = random.randint(5, 8)
-        mov = random.randint(0, 127)
-        s, trk = ADSBMath.encode_ground_track(random.uniform(0, 360), random.choice([True, False]))
-        t = random.choices([1, 0], [0.9, 0.1], k=1)[0]
+        tc = self._rng.randint(5, 8)
+        mov = self._rng.randint(0, 127)
+        s, trk = ADSBMath.encode_ground_track(self._rng.uniform(0, 360), self._rng.choice([True, False]))
+        t = self._rng.choices([1, 0], [0.9, 0.1], k=1)[0]
 
-        f = random.randint(0, 1)
-        lat_cpr, lon_cpr = ADSBMath.encode_cpr(random.uniform(-90, 90), random.uniform(-180, 180), (f == 1))
+        f = self._rng.randint(0, 1)
+        lat_cpr, lon_cpr = ADSBMath.encode_cpr(self._rng.uniform(-90, 90), self._rng.uniform(-180, 180), (f == 1))
 
         return ((tc << 51) | (mov << 44) | (s << 43) | (trk << 36) |
         (t << 35) | (f << 34) | (lat_cpr << 17) | lon_cpr)
 
     def _build_airborne_position_message(self) -> int:
-        tc = random.choice([random.randint(9, 18), random.randint(20, 22)])
-        ss = random.randint(0 ,3)
-        saf = random.choice([0, 1])
+        tc = self._rng.choice([self._rng.randint(9, 18), self._rng.randint(20, 22)])
+        ss = self._rng.randint(0 ,3)
+        saf = self._rng.choice([0, 1])
 
-        alt = ADSBMath.encode_altitude(random.randint(500, 45000))
+        alt = ADSBMath.encode_altitude(self._rng.randint(500, 45000))
 
-        t = random.choices([1, 0], [0.9, 0.1], k=1)[0]
+        t = self._rng.choices([1, 0], [0.9, 0.1], k=1)[0]
 
-        f = random.randint(0, 1)
-        lat_cpr, lon_cpr = ADSBMath.encode_cpr(random.uniform(-90, 90), random.uniform(-180, 180), (f == 1))
+        f = self._rng.randint(0, 1)
+        lat_cpr, lon_cpr = ADSBMath.encode_cpr(self._rng.uniform(-90, 90), self._rng.uniform(-180, 180), (f == 1))
 
         return ((tc << 51) | (ss << 49) | (saf << 48) | (alt << 36) |
                 (t << 35) | (f << 34) | (lat_cpr << 17) | lon_cpr)
 
     def _build_airborne_velocity_message(self) -> int:
         tc = 19
-        st = random.randint(1, 4)
-        ic = random.choice([0, 1])
-        ifr = random.choice([0, 1])
-        nucv = random.randint(0, 4)
+        st = self._rng.randint(1, 4)
+        ic = self._rng.choice([0, 1])
+        ifr = self._rng.choice([0, 1])
+        nucv = self._rng.randint(0, 4)
 
         subtype = 0
         if st in [1, 2]:
-            dew = random.choice([0, 1])
-            vew = (random.randint(0, 1021) + 1) if st == 1 else (int(random.choice([x for x in range(0, 4085, 4)]) / 4) + 1)
-            dns = random.choice([0, 1])
-            vns = (random.randint(0, 1021) + 1) if st == 1 else (int(random.choice([x for x in range(0, 4085, 4)]) / 4) + 1)
+            dew = self._rng.choice([0, 1])
+            vew = (self._rng.randint(0, 1021) + 1) if st == 1 else (int(self._rng.choice([x for x in range(0, 4085, 4)]) / 4) + 1)
+            dns = self._rng.choice([0, 1])
+            vns = (self._rng.randint(0, 1021) + 1) if st == 1 else (int(self._rng.choice([x for x in range(0, 4085, 4)]) / 4) + 1)
             
             subtype = (dew << 21) | (vew << 11) | (dns << 10) | vns
         else:
-            sh = random.choice([0, 1])
-            hdg = round((random.uniform(0.0, 360.0) * 1024) / 360) % 1024
-            t = random.choice([0, 1])
-            ais = (random.randint(0, 1021) + 1) if st == 3 else (int(random.choice([x for x in range(0, 4085, 4)]) / 4) + 1)
+            sh = self._rng.choice([0, 1])
+            hdg = round((self._rng.uniform(0.0, 360.0) * 1024) / 360) % 1024
+            t = self._rng.choice([0, 1])
+            ais = (self._rng.randint(0, 1021) + 1) if st == 3 else (int(self._rng.choice([x for x in range(0, 4085, 4)]) / 4) + 1)
 
             subtype = (sh << 21) | (hdg << 11) | (t << 10) | ais
 
-        vrsrc = random.choice([0, 1])
-        svr = random.choice([0, 1])
-        vr = int(random.choice([x for x in range(0, 32641, 64)]) / 64) + 1
+        vrsrc = self._rng.choice([0, 1])
+        svr = self._rng.choice([0, 1])
+        vr = int(self._rng.choice([x for x in range(0, 32641, 64)]) / 64) + 1
         res = 0
-        sdif = random.choice([0, 1])
-        dalt = int(random.choice([x for x in range(0, 3151, 25)]) / 25) + 1
+        sdif = self._rng.choice([0, 1])
+        dalt = int(self._rng.choice([x for x in range(0, 3151, 25)]) / 25) + 1
 
         return ((tc << 51) | (st << 48) | (ic << 47) | (ifr << 46) | (nucv << 43) |
                 (subtype << 21) | (vrsrc << 20) | (svr << 19) | (vr << 10) | (res << 8) | (sdif << 7) | dalt)
@@ -150,9 +161,9 @@ class ADSBMessage():
 
     def build(self) -> int:
         """
-        Generates a random ADS-B message based on configured probabilities and calculates its CRC.
+        Generates a self._rng ADS-B message based on configured probabilities and calculates its CRC.
 
-        Randomly selects an ADS-B message type using the configured probability distribution, 
+        self._rngly selects an ADS-B message type using the configured probability distribution, 
         constructs the message fields (Downlink Format, Capability, ICAO address, and Message payload), 
         and computes the final parity checksum.
 
@@ -162,11 +173,11 @@ class ADSBMessage():
         """
         types = list(self.message_type_probs.keys())
         weights = list(self.message_type_probs.values())
-        selected_type = random.choices(types, weights, k=1)[0]
+        selected_type = self._rng.choices(types, weights, k=1)[0]
 
         df = 17                       
-        ca = random.randint(0, 7)        
-        icao = random.getrandbits(24)   
+        ca = self._rng.randint(0, 7)        
+        icao = self._rng.getrandbits(24)   
         me = 0  
 
         if selected_type == ADSBMessageType.IDENTIFICATION:
