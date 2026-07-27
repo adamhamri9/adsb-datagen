@@ -4,13 +4,39 @@ from enum import Enum
 from .adsb_math import ADSBMath
 
 class ADSBMessageType(Enum):
+    """Supported Automatic Dependent Surveillance-Broadcast (ADS-B) message types."""
+    
     IDENTIFICATION = "identification"
     SURFACE_POSITION = "surface_position"
     AIRBORNE_POSITION = "airborne_position"
     AIRBORNE_VELOCITY = "airborne_velocity"
 
 class ADSBMessage():
+    """
+    Generates synthetic 112-bit ADS-B (Mode S Downlink Format 17) raw frames.
+
+    This class handles the probabilistic generation and bit-level encoding of 
+    various ADS-B message types—including aircraft identification, surface position, 
+    airborne position, and airborne velocity—complete with 24-bit CRC parity generation.
+
+    Attributes:
+        message_type_probs (dict[ADSBMessageType | str, float]): Mapping of message 
+            types to their selection probabilities.
+    """
     def __init__(self, message_type_probs: dict = None):
+        """
+        Initializes the instance with message type probabilities.
+
+        Args:
+            message_type_probs: A mapping of ADSBMessageType to their respective 
+                emission probabilities. If None, defaults to an equal 25% distribution 
+                across IDENTIFICATION, SURFACE_POSITION, AIRBORNE_POSITION, and 
+                AIRBORNE_VELOCITY.
+
+        Raises:
+            ValueError: If `message_type_probs` contains invalid probability values 
+                or does not sum to 1.0 (validated via `_validate_probabilities`).
+        """
 
         default_probs = {
             ADSBMessageType.IDENTIFICATION: 0.25,
@@ -123,6 +149,17 @@ class ADSBMessage():
 
 
     def build(self) -> int:
+        """
+        Generates a random ADS-B message based on configured probabilities and calculates its CRC.
+
+        Randomly selects an ADS-B message type using the configured probability distribution, 
+        constructs the message fields (Downlink Format, Capability, ICAO address, and Message payload), 
+        and computes the final parity checksum.
+
+        Returns:
+            The complete 112-bit ADS-B message encoded as an integer, including 
+            the 24-bit Parity/Interrogation ID (CRC).
+        """
         types = list(self.message_type_probs.keys())
         weights = list(self.message_type_probs.values())
         selected_type = random.choices(types, weights, k=1)[0]
