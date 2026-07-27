@@ -180,14 +180,14 @@ class ADSBMessage():
         icao = self._rng.getrandbits(24)   
         me = 0  
 
-        if selected_type == ADSBMessageType.IDENTIFICATION:
-            me = self._build_identification_message()  
-        elif selected_type == ADSBMessageType.SURFACE_POSITION:
-            me = self._build_surface_position_message()
-        elif selected_type == ADSBMessageType.AIRBORNE_POSITION:
-            me = self._build_airborne_position_message()
-        elif selected_type == ADSBMessageType.AIRBORNE_VELOCITY:
-            me = self._build_airborne_velocity_message()
+        generators = {
+            ADSBMessageType.IDENTIFICATION: self._build_identification_message,
+            ADSBMessageType.SURFACE_POSITION: self._build_surface_position_message,
+            ADSBMessageType.AIRBORNE_POSITION: self._build_airborne_position_message,
+            ADSBMessageType.AIRBORNE_VELOCITY: self._build_airborne_velocity_message,
+        }
+
+        me = generators[selected_type]()
 
         data = (df << 83) | (ca << 80) | (icao << 56) | me
 
