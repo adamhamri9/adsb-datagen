@@ -51,8 +51,8 @@ class ADSBMessage():
         self.message_type_probs = message_type_probs or default_probs
         self._validate_probabilities()
 
-        self._seed = self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
-        self._rng = random.Random(seed)
+        self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+        self._rng = random.Random(self._seed)
 
         self._CALLSIGN_CHARSET = {
             " ": 0,
