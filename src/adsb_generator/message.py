@@ -175,6 +175,8 @@ class ADSBMessage():
         weights = list(self.message_type_probs.values())
         selected_type = self._rng.choices(types, weights, k=1)[0]
 
+        selected_type = ADSBMessageType(selected_type) if isinstance(selected_type, str) else selected_type
+
         df = 17                       
         ca = self._rng.randint(0, 7)        
         icao = self._rng.getrandbits(24)   
