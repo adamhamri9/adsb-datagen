@@ -3,7 +3,6 @@ from enum import Enum
 
 class TXParams(Enum):
     AMPLITUDE = "amplitude"
-    THRESHOLD = "threshold"
 
 class ADSBEncoder:
     def __init__(self, sample_rate: float = 2e6, tx_params_distributions: dict | None = None, seed: int | None = None):
@@ -14,12 +13,7 @@ class ADSBEncoder:
                     [0.05, 0.25, 0.5],
                     [0.25, 0.65, 0.3],
                     [0.65, 1.00, 0.2]
-                ],
-                TXParams.THRESHOLD: [
-                    [0.02, 0.10, 0.5],
-                    [0.10, 0.35, 0.3],
-                    [0.35, 0.60, 0.2]
-            ]}
+                ]}
 
         self.tx_params_dists = tx_params_distributions or default_dists
 
