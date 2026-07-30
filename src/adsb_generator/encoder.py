@@ -28,6 +28,11 @@ class ADSBEncoder:
         self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         self._rng = random.Random(self._seed)
 
+    @property
+    def seed(self) -> int:
+        """Gets the seed value passed at initialization."""
+        return self._seed
+
     def _validate_distributions(self):
         valid_types = set(TXParams)
         valid_values = {item.value for item in TXParams}
