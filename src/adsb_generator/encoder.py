@@ -1,4 +1,5 @@
 import random
+import numpy as np
 from enum import Enum
 
 class TXParams(Enum):
@@ -65,3 +66,36 @@ class ADSBEncoder:
             sampled_params[enum_key] = sampled_val
 
         return sampled_params
+
+    def encode(self, msg: int) -> tuple[np.ndarray, dict[TXParams, float]]:
+        params = self._sample_tx_params()
+        amplitude = params[TXParams.AMPLITUDE]
+
+        samples_per_us = self.sample_rate / 1e6
+        total_samples = int(round(120.0 * samples_per_us))
+
+        signal = np.zeros(total_samples, dtype=np.float32)
+
+        for start_us, end_us in ((0.0, 0.5), (1.0, 1.5), (3.5, 4.0), (4.5, 5.0)):
+            signal[
+                int(round(start_us * samples_per_us)):
+                int(round(end_us * samples_per_us))
+            ] = amplitude
+
+        bit_start_us = 8.0
+
+        for shift in range(111, -1, -1):
+            bit = (msg >> shift) & 1
+
+            pulse_offset_us = 0.0 if bit else 0.5
+
+            p_start = round((bit_start_us + pulse_offset_us) * samples_per_us)
+            p_end = round((bit_start_us + pulse_offset_us + 0.5) * samples_per_us)
+
+            signal[p_start:p_end] = amplitude
+
+            bit_start_us += 1.0
+
+        iq_samples = signal.astype(np.complex64)
+
+        return iq_samples, params
