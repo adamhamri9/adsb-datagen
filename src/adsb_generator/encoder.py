@@ -57,4 +57,17 @@ class ADSBEncoder:
                     f"Sum of weights for key '{tx_param}' must equal 1.0, got {total_weights:.2f}"
                 )
 
-        
+    def _sample_tx_params(self) -> dict[TXParams, float]:
+        sampled_params = {}
+        for param_key, intervals in self.tx_params_dists.items(): 
+            ranges = [(low, high) for low, high, _ in intervals]
+            weights = [w for _, _, w in intervals]
+
+            selected_range = self._rng.choices(ranges, weights, k=1)[0]
+
+            sampled_val = self._rng.uniform(selected_range[0], selected_range[1])
+
+            enum_key = param_key if isinstance(param_key, TXParams) else TXParams(param_key)
+            sampled_params[enum_key] = sampled_val
+
+        return sampled_params

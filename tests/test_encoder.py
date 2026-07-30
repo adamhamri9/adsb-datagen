@@ -148,3 +148,72 @@ class TestValidateDistributions:
         }
         enc = ADSBEncoder(tx_params_distributions=custom)
         enc._validate_distributions()
+
+
+class TestSampleTxParams:
+    def setup_method(self):
+        self.enc = ADSBEncoder(seed=42)
+
+    def test_returns_dict(self):
+        result = self.enc._sample_tx_params()
+        assert isinstance(result, dict)
+
+    def test_keys_are_txparams_enums(self):
+        result = self.enc._sample_tx_params()
+        for key in result:
+            assert isinstance(key, TXParams)
+
+    def test_contains_all_expected_params(self):
+        result = self.enc._sample_tx_params()
+        assert TXParams.AMPLITUDE in result
+        assert TXParams.THRESHOLD in result
+
+    def test_values_are_floats(self):
+        result = self.enc._sample_tx_params()
+        for val in result.values():
+            assert isinstance(val, float)
+
+    def test_amplitude_in_expected_range(self):
+        for _ in range(100):
+            result = self.enc._sample_tx_params()
+            assert 0.05 <= result[TXParams.AMPLITUDE] <= 1.0
+
+    def test_threshold_in_expected_range(self):
+        for _ in range(100):
+            result = self.enc._sample_tx_params()
+            assert 0.02 <= result[TXParams.THRESHOLD] <= 0.6
+
+    def test_reproducible_with_same_seed(self):
+        enc1 = ADSBEncoder(seed=99)
+        enc2 = ADSBEncoder(seed=99)
+        assert enc1._sample_tx_params() == enc2._sample_tx_params()
+
+    def test_different_seeds_different_result(self):
+        enc1 = ADSBEncoder(seed=1)
+        enc2 = ADSBEncoder(seed=2)
+        assert enc1._sample_tx_params() != enc2._sample_tx_params()
+
+    def test_multiple_calls_produce_varied_values(self):
+        amplitudes = {self.enc._sample_tx_params()[TXParams.AMPLITUDE] for _ in range(50)}
+        assert len(amplitudes) > 1
+
+    def test_string_keys_produce_txparams_enum_keys(self):
+        custom = {"amplitude": [[0.1, 0.2, 0.5], [0.2, 0.3, 0.5]],
+                  "threshold": [[0.1, 0.2, 1.0]]}
+        enc = ADSBEncoder(tx_params_distributions=custom, seed=42)
+        result = enc._sample_tx_params()
+        for key in result:
+            assert isinstance(key, TXParams)
+        assert TXParams.AMPLITUDE in result
+        assert TXParams.THRESHOLD in result
+
+    def test_values_respect_narrow_custom_range(self):
+        custom = {
+            TXParams.AMPLITUDE: [[0.75, 0.80, 1.0]],
+            TXParams.THRESHOLD: [[0.05, 0.06, 1.0]],
+        }
+        enc = ADSBEncoder(tx_params_distributions=custom, seed=42)
+        for _ in range(100):
+            result = enc._sample_tx_params()
+            assert 0.75 <= result[TXParams.AMPLITUDE] <= 0.80
+            assert 0.05 <= result[TXParams.THRESHOLD] <= 0.06
