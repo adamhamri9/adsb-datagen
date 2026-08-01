@@ -6,7 +6,41 @@ class TXParams(Enum):
     AMPLITUDE = "amplitude"
 
 class ADSBEncoder:
-    def __init__(self, sample_rate: float = 2e6, tx_params_distributions: dict | None = None, seed: int | None = None):
+    """
+    Converts ADS-B raw frames into baseband I/Q samples with randomized transmission parameters.
+
+    This class handles the encoding of 112-bit ADS-B messages into a complex baseband 
+    signal representation, following the pulse-position modulation (PPM) encoding 
+    scheme defined in the Mode S/ADS-B standard. The encoder adds configurable 
+    random variations to transmission parameters (e.g., amplitude) to simulate 
+    real-world signal variability.
+
+    Attributes:
+        sample_rate (float): Sampling rate in samples per second.
+        tx_params_distributions (dict[TXParams | str, list[list[float]]]): Mapping 
+            of transmission parameters to their probability distributions defined 
+            as intervals with associated weights.
+        seed (int | None): Seed for the internal random number generator to ensure 
+            reproducible signal generation.
+    """
+    def __init__(self, sample_rate: float = 2e6, tx_params_distributions: (dict[TXParams | str, list[list[float]]]) | None = None, seed: int | None = None):
+        """
+        Initializes the encoder with sampling parameters and transmission parameter distributions.
+
+        Args:
+            sample_rate: Sampling rate in samples per second. Defaults to 2 MHz.
+            tx_params_distributions: A mapping of TXParams to probability distributions 
+                defined as lists of [min_val, max_val, weight] intervals. If None, 
+                defaults to a single amplitude distribution with three intervals 
+                covering the range [0.05, 1.00].
+            seed: Seed for the internal random number generator to ensure reproducible 
+                signal generation. If None, the generator is seeded from system randomness.
+
+        Raises:
+            ValueError: If `tx_params_distributions` contains invalid keys, invalid 
+                intervals (min > max), or weights that do not sum to 1.0 (validated 
+                via `_validate_distributions`).
+        """
         self.sample_rate = sample_rate
 
         default_dists = {
@@ -68,6 +102,26 @@ class ADSBEncoder:
         return sampled_params
 
     def encode(self, msg: int) -> tuple[np.ndarray, dict[TXParams, float]]:
+        """
+        Encodes a 112-bit ADS-B message into a complex baseband I/Q signal.
+
+        This method samples transmission parameters from configured distributions and 
+        generates a 120 μs signal containing the preamble and 112 data bits encoded 
+        using PPM at 1 Mbps.
+
+        The timing follows the ADS-B standard:
+            - Preamble: 8.0 μs with pulses at specific positions
+            - Data bits: 112 bits at 1 μs per bit starting at 8.0 μs
+            - Pulse width: 0.5 μs for both preamble and data pulses
+
+        Args:
+            msg: The 112-bit ADS-B message as an integer (LSB alignment).
+
+        Returns:
+            A tuple containing:
+                - np.ndarray: Complex I/Q samples of the baseband signal (dtype=np.complex64)
+                - dict[TXParams, float]: The transmission parameters used for this encode operation
+        """
         params = self._sample_tx_params()
         amplitude = params[TXParams.AMPLITUDE]
 
