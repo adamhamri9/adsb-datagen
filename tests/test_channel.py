@@ -16,8 +16,11 @@ class TestChannelParams:
     def test_has_phase_offset(self):
         assert ChannelParams.PHASE_OFFSET.value == "phase_offset"
 
-    def test_has_dc_offset(self):
-        assert ChannelParams.DC_OFFSET.value == "dc_offset"
+    def test_has_dc_offset_i(self):
+        assert ChannelParams.DC_OFFSET_I.value == "dc_offset_i"
+
+    def test_has_dc_offset_q(self):
+        assert ChannelParams.DC_OFFSET_Q.value == "dc_offset_q"
 
     def test_has_iq_gain_imbalance(self):
         assert ChannelParams.IQ_GAIN_IMBALANCE.value == "iq_gain_imbalance"
@@ -50,7 +53,11 @@ class TestADSBChannelInit:
                 [-0.10, 0.10, 0.80],
                 [-0.30, 0.30, 0.20],
             ],
-            ChannelParams.DC_OFFSET: [
+            ChannelParams.DC_OFFSET_I: [
+                [-0.01, 0.01, 0.90],
+                [-0.03, 0.03, 0.10],
+            ],
+            ChannelParams.DC_OFFSET_Q: [
                 [-0.01, 0.01, 0.90],
                 [-0.03, 0.03, 0.10],
             ],
@@ -194,7 +201,8 @@ class TestSampleChannelParams:
         assert ChannelParams.NOISE_CORRELATION in result
         assert ChannelParams.FREQUENCY_OFFSET in result
         assert ChannelParams.PHASE_OFFSET in result
-        assert ChannelParams.DC_OFFSET in result
+        assert ChannelParams.DC_OFFSET_I in result
+        assert ChannelParams.DC_OFFSET_Q in result
         assert ChannelParams.IQ_GAIN_IMBALANCE in result
         assert ChannelParams.IQ_PHASE_IMBALANCE in result
 
@@ -223,10 +231,15 @@ class TestSampleChannelParams:
             result = self.ch._sample_channel_params()
             assert -0.30 <= result[ChannelParams.PHASE_OFFSET] <= 0.30
 
-    def test_dc_offset_in_expected_range(self):
+    def test_dc_offset_i_in_expected_range(self):
         for _ in range(100):
             result = self.ch._sample_channel_params()
-            assert -0.03 <= result[ChannelParams.DC_OFFSET] <= 0.03
+            assert -0.03 <= result[ChannelParams.DC_OFFSET_I] <= 0.03
+
+    def test_dc_offset_q_in_expected_range(self):
+        for _ in range(100):
+            result = self.ch._sample_channel_params()
+            assert -0.03 <= result[ChannelParams.DC_OFFSET_Q] <= 0.03
 
     def test_iq_gain_imbalance_in_expected_range(self):
         for _ in range(100):
