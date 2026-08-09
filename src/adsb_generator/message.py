@@ -3,7 +3,7 @@ import string
 from enum import Enum
 from .adsb_math import ADSBMath
 
-class ADSBMessageType(Enum):
+class MessageType(Enum):
     """Supported Automatic Dependent Surveillance-Broadcast (ADS-B) message types."""
     IDENTIFICATION = "identification"
     SURFACE_POSITION = "surface_position"
@@ -19,7 +19,7 @@ class ADSBMessage():
     airborne position, and airborne velocity—complete with 24-bit CRC parity generation.
 
     Attributes:
-        message_type_probs (dict[ADSBMessageType | str, float]): Mapping of message 
+        message_type_probs (dict[MessageType | str, float]): Mapping of message 
             types to their selection probabilities.
         seed: int | None = None: Seed for the internal random number generator to ensure reproducible 
             message output.
@@ -29,7 +29,7 @@ class ADSBMessage():
         Initializes the instance with message type probabilities.
 
         Args:
-            message_type_probs: A mapping of ADSBMessageType to their respective 
+            message_type_probs: A mapping of MessageType to their respective 
                 emission probabilities. If None, defaults to an equal 25% distribution 
                 across IDENTIFICATION, SURFACE_POSITION, AIRBORNE_POSITION, and 
                 AIRBORNE_VELOCITY.
@@ -42,10 +42,10 @@ class ADSBMessage():
         """
 
         default_probs = {
-            ADSBMessageType.IDENTIFICATION: 0.25,
-            ADSBMessageType.SURFACE_POSITION: 0.25,
-            ADSBMessageType.AIRBORNE_POSITION: 0.25,
-            ADSBMessageType.AIRBORNE_VELOCITY: 0.25
+            MessageType.IDENTIFICATION: 0.25,
+            MessageType.SURFACE_POSITION: 0.25,
+            MessageType.AIRBORNE_POSITION: 0.25,
+            MessageType.AIRBORNE_VELOCITY: 0.25
         }
 
         self.message_type_probs = message_type_probs or default_probs
@@ -67,14 +67,14 @@ class ADSBMessage():
 
 
     def _validate_probabilities(self):
-        valid_types = set(item for item in ADSBMessageType)
-        valid_values = set(item.value for item in ADSBMessageType)
+        valid_types = set(item for item in MessageType)
+        valid_values = set(item.value for item in MessageType)
 
         for msg_type in self.message_type_probs.keys():
             if msg_type not in valid_types and msg_type not in valid_values:
                 raise ValueError(
                     f"Invalid message type key: '{msg_type}'. "
-                    f"Valid options are the ADSBMessageType enums or: {valid_values}"
+                    f"Valid options are the MessageType enums or: {valid_values}"
                 )
             
         total= sum(self.message_type_probs.values())
@@ -175,7 +175,7 @@ class ADSBMessage():
         weights = list(self.message_type_probs.values())
         selected_type = self._rng.choices(types, weights, k=1)[0]
 
-        selected_type = ADSBMessageType(selected_type) if isinstance(selected_type, str) else selected_type
+        selected_type = MessageType(selected_type) if isinstance(selected_type, str) else selected_type
 
         df = 17                       
         ca = self._rng.randint(0, 7)        
@@ -183,10 +183,10 @@ class ADSBMessage():
         me = 0  
 
         generators = {
-            ADSBMessageType.IDENTIFICATION: self._build_identification_message,
-            ADSBMessageType.SURFACE_POSITION: self._build_surface_position_message,
-            ADSBMessageType.AIRBORNE_POSITION: self._build_airborne_position_message,
-            ADSBMessageType.AIRBORNE_VELOCITY: self._build_airborne_velocity_message,
+            MessageType.IDENTIFICATION: self._build_identification_message,
+            MessageType.SURFACE_POSITION: self._build_surface_position_message,
+            MessageType.AIRBORNE_POSITION: self._build_airborne_position_message,
+            MessageType.AIRBORNE_VELOCITY: self._build_airborne_velocity_message,
         }
 
         me = generators[selected_type]()
