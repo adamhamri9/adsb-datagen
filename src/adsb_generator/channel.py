@@ -1,4 +1,5 @@
 import random
+import numpy as np
 from enum import Enum
 
 class ChannelParams(Enum):
@@ -7,7 +8,8 @@ class ChannelParams(Enum):
 
     FREQUENCY_OFFSET = "frequency_offset"
     PHASE_OFFSET = "phase_offset"
-    DC_OFFSET = "dc_offset"
+    DC_OFFSET_I = "dc_offset_i"
+    DC_OFFSET_Q = "dc_offset_q"
 
     IQ_GAIN_IMBALANCE = "iq_gain_imbalance"
     IQ_PHASE_IMBALANCE = "iq_phase_imbalance"
@@ -32,7 +34,11 @@ class ADSBChannel:
                 [-0.10, 0.10, 0.80],
                 [-0.30, 0.30, 0.20],
             ],
-            ChannelParams.DC_OFFSET: [
+            ChannelParams.DC_OFFSET_I: [
+                [-0.01, 0.01, 0.90],
+                [-0.03, 0.03, 0.10],
+            ],
+            ChannelParams.DC_OFFSET_Q: [
                 [-0.01, 0.01, 0.90],
                 [-0.03, 0.03, 0.10],
             ],
@@ -96,4 +102,4 @@ class ADSBChannel:
             sampled_params[enum_key] = sampled_val
 
         return sampled_params
-        
+    
