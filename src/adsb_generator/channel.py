@@ -102,4 +102,8 @@ class ADSBChannel:
             sampled_params[enum_key] = sampled_val
 
         return sampled_params
+
+    def _apply_dc_offset(self, signal: np.ndarray, dc_offset_i: float, dc_offset_q: float) -> np.ndarray:
+        dc_offset = dc_offset_i + 1j * dc_offset_q
+        return signal + dc_offset
     

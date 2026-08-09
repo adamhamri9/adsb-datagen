@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from src.adsb_generator.channel import ADSBChannel, ChannelParams
@@ -293,3 +294,71 @@ class TestSampleChannelParams:
             result = ch._sample_channel_params()
             assert 10.0 <= result[ChannelParams.SNR_DB] <= 10.1
             assert 500.0 <= result[ChannelParams.FREQUENCY_OFFSET] <= 510.0
+
+
+class TestApplyDCOffset:
+    def setup_method(self):
+        self.ch = ADSBChannel(seed=42)
+
+    def test_returns_ndarray(self):
+        signal = np.zeros(10, dtype=np.complex128)
+        result = self.ch._apply_dc_offset(signal, 0.01, -0.02)
+        assert isinstance(result, np.ndarray)
+
+    def test_returns_complex_dtype(self):
+        signal = np.zeros(10, dtype=np.complex128)
+        result = self.ch._apply_dc_offset(signal, 0.01, -0.02)
+        assert np.iscomplexobj(result)
+
+    def test_preserves_shape(self):
+        signal = np.zeros((4, 32), dtype=np.complex128)
+        result = self.ch._apply_dc_offset(signal, 0.01, -0.02)
+        assert result.shape == signal.shape
+
+    def test_zero_offset_returns_unchanged_signal(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch._apply_dc_offset(signal, 0.0, 0.0)
+        np.testing.assert_array_equal(result, signal)
+
+    def test_adds_dc_offset_i_to_real_part(self):
+        signal = np.zeros(10, dtype=np.complex128)
+        result = self.ch._apply_dc_offset(signal, 0.01, 0.0)
+        np.testing.assert_allclose(result.real, np.full(10, 0.01))
+        np.testing.assert_allclose(result.imag, np.zeros(10))
+
+    def test_adds_dc_offset_q_to_imaginary_part(self):
+        signal = np.zeros(10, dtype=np.complex128)
+        result = self.ch._apply_dc_offset(signal, 0.0, -0.02)
+        np.testing.assert_allclose(result.real, np.zeros(10))
+        np.testing.assert_allclose(result.imag, np.full(10, -0.02))
+
+    def test_adds_both_offsets(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        result = self.ch._apply_dc_offset(signal, 0.5, -0.25)
+        expected = np.array([1.5 + 1.75j, -2.5 + 3.75j], dtype=np.complex128)
+        np.testing.assert_array_equal(result, expected)
+
+    def test_preserves_signal_values(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j, 5.0 - 6.0j], dtype=np.complex128)
+        result = self.ch._apply_dc_offset(signal, 0.01, 0.02)
+        expected = signal + (0.01 + 0.02j)
+        np.testing.assert_allclose(result, expected)
+
+    def test_does_not_mutate_input(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        original = signal.copy()
+        self.ch._apply_dc_offset(signal, 0.5, -0.25)
+        np.testing.assert_array_equal(signal, original)
+
+    def test_works_with_real_dtype_input(self):
+        signal = np.zeros(10, dtype=np.float64)
+        result = self.ch._apply_dc_offset(signal, 0.01, 0.02)
+        assert np.iscomplexobj(result)
+        np.testing.assert_allclose(result.real, np.full(10, 0.01))
+        np.testing.assert_allclose(result.imag, np.full(10, 0.02))
+
+    def test_works_with_empty_signal(self):
+        signal = np.array([], dtype=np.complex128)
+        result = self.ch._apply_dc_offset(signal, 0.01, 0.02)
+        assert result.shape == (0,)
+        assert result.dtype == np.complex128
