@@ -1,7 +1,7 @@
 import random
 import string
 from enum import Enum
-from .adsb_math import ADSBMath
+from .algorithms import ADSBAlgorithms
 
 class MessageType(Enum):
     """Supported Automatic Dependent Surveillance-Broadcast (ADS-B) message types."""
@@ -101,11 +101,11 @@ class ADSBMessage():
     def _build_surface_position_message(self) -> int:
         tc = self._rng.randint(5, 8)
         mov = self._rng.randint(0, 127)
-        s, trk = ADSBMath.encode_ground_track(self._rng.uniform(0, 360), self._rng.choice([True, False]))
+        s, trk = ADSBAlgorithms.encode_ground_track(self._rng.uniform(0, 360), self._rng.choice([True, False]))
         t = self._rng.choices([1, 0], [0.9, 0.1], k=1)[0]
 
         f = self._rng.randint(0, 1)
-        lat_cpr, lon_cpr = ADSBMath.encode_cpr(self._rng.uniform(-90, 90), self._rng.uniform(-180, 180), (f == 1))
+        lat_cpr, lon_cpr = ADSBAlgorithms.encode_cpr(self._rng.uniform(-90, 90), self._rng.uniform(-180, 180), (f == 1))
 
         return ((tc << 51) | (mov << 44) | (s << 43) | (trk << 36) |
         (t << 35) | (f << 34) | (lat_cpr << 17) | lon_cpr)
@@ -115,12 +115,12 @@ class ADSBMessage():
         ss = self._rng.randint(0 ,3)
         saf = self._rng.choice([0, 1])
 
-        alt = ADSBMath.encode_altitude(self._rng.randint(500, 45000))
+        alt = ADSBAlgorithms.encode_altitude(self._rng.randint(500, 45000))
 
         t = self._rng.choices([1, 0], [0.9, 0.1], k=1)[0]
 
         f = self._rng.randint(0, 1)
-        lat_cpr, lon_cpr = ADSBMath.encode_cpr(self._rng.uniform(-90, 90), self._rng.uniform(-180, 180), (f == 1))
+        lat_cpr, lon_cpr = ADSBAlgorithms.encode_cpr(self._rng.uniform(-90, 90), self._rng.uniform(-180, 180), (f == 1))
 
         return ((tc << 51) | (ss << 49) | (saf << 48) | (alt << 36) |
                 (t << 35) | (f << 34) | (lat_cpr << 17) | lon_cpr)
@@ -193,4 +193,4 @@ class ADSBMessage():
 
         data = (df << 83) | (ca << 80) | (icao << 56) | me
 
-        return ADSBMath.calculate_crc(data)
+        return ADSBAlgorithms.calculate_crc(data)

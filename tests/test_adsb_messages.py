@@ -467,9 +467,9 @@ class TestBuild:
             assert callsign < (1 << 48)
 
     def test_crc_is_valid(self):
-        from src.adsb_generator.adsb_math import ADSBMath
+        from src.adsb_generator.algorithms import ADSBAlgorithms
         for _ in range(20):
             result = self.msg.build()
             data_without_crc = result >> 24
-            recalc = ADSBMath.calculate_crc(data_without_crc)
+            recalc = ADSBAlgorithms.calculate_crc(data_without_crc)
             assert recalc == result

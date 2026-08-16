@@ -1,6 +1,6 @@
 import math
 
-class ADSBMath():
+class ADSBAlgorithms():
 
     CRC_POLY = 0xFFF409
 

@@ -1,12 +1,12 @@
 import pytest
 
-from src.adsb_generator.adsb_math import ADSBMath
+from src.adsb_generator.algorithms import ADSBAlgorithms
 
 
 class TestEncodeCPR:
     def test_returns_tuple_of_two_integers(self):
         lat, lon = 52.2572, 3.91937
-        result = ADSBMath.encode_cpr(lat, lon, odd=False)
+        result = ADSBAlgorithms.encode_cpr(lat, lon, odd=False)
 
         assert isinstance(result, tuple)
         assert len(result) == 2
@@ -16,7 +16,7 @@ class TestEncodeCPR:
     @pytest.mark.parametrize("odd", [False, True])
     def test_output_values_are_17_bit_unsigned(self, odd):
         # 17-bit integer range: [0, 131071]
-        lat_cpr, lon_cpr = ADSBMath.encode_cpr(45.0, 10.0, odd=odd)
+        lat_cpr, lon_cpr = ADSBAlgorithms.encode_cpr(45.0, 10.0, odd=odd)
 
         assert 0 <= lat_cpr <= 0x1FFFF
         assert 0 <= lon_cpr <= 0x1FFFF
@@ -33,13 +33,13 @@ class TestEncodeCPR:
         ],
     )
     def test_is_deterministic(self, lat, lon, is_odd):
-        assert ADSBMath.encode_cpr(lat, lon, is_odd) == ADSBMath.encode_cpr(lat, lon, is_odd)
+        assert ADSBAlgorithms.encode_cpr(lat, lon, is_odd) == ADSBAlgorithms.encode_cpr(lat, lon, is_odd)
 
     def test_even_and_odd_frames_produce_different_encodings(self):
         lat, lon = 52.2572, 3.91937
 
-        even_encoding = ADSBMath.encode_cpr(lat, lon, odd=False)
-        odd_encoding = ADSBMath.encode_cpr(lat, lon, odd=True)
+        even_encoding = ADSBAlgorithms.encode_cpr(lat, lon, odd=False)
+        odd_encoding = ADSBAlgorithms.encode_cpr(lat, lon, odd=True)
 
         assert even_encoding != odd_encoding
 
@@ -54,8 +54,8 @@ class TestEncodeCPR:
         ],
     )
     def test_handles_extreme_coordinates(self, lat, lon):
-        even_lat, even_lon = ADSBMath.encode_cpr(lat, lon, odd=False)
-        odd_lat, odd_lon = ADSBMath.encode_cpr(lat, lon, odd=True)
+        even_lat, even_lon = ADSBAlgorithms.encode_cpr(lat, lon, odd=False)
+        odd_lat, odd_lon = ADSBAlgorithms.encode_cpr(lat, lon, odd=True)
 
         assert 0 <= even_lat <= 0x1FFFF
         assert 0 <= even_lon <= 0x1FFFF
@@ -86,6 +86,6 @@ class TestEncodeCPR:
         ],
     )
     def test_encode_cpr(self, lat, lon, odd, expected_lat_cpr, expected_lon_cpr):
-        lat_cpr, lon_cpr = ADSBMath.encode_cpr(lat, lon, odd)
+        lat_cpr, lon_cpr = ADSBAlgorithms.encode_cpr(lat, lon, odd)
         assert lat_cpr == expected_lat_cpr, f"lat: {lat_cpr} != {expected_lat_cpr}"
         assert lon_cpr == expected_lon_cpr, f"lon: {lon_cpr} != {expected_lon_cpr}"

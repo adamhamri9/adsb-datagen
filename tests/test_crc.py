@@ -1,27 +1,27 @@
 import pytest
 
-from src.adsb_generator.adsb_math import ADSBMath
+from src.adsb_generator.algorithms import ADSBAlgorithms
 
 
 class TestEncodeCRC:
     def test_returns_112_bit_packet(self):
         bits = (1 << 88) - 1
 
-        packet = ADSBMath.calculate_crc(bits)
+        packet = ADSBAlgorithms.calculate_crc(bits)
 
         assert packet.bit_length() <= 112
 
     def test_original_message_is_preserved(self):
         bits = 0x123456789ABCDEF123456789ABCD
 
-        packet = ADSBMath.calculate_crc(bits)
+        packet = ADSBAlgorithms.calculate_crc(bits)
 
         assert packet >> 24 == bits
 
     def test_crc_is_24_bits(self):
         bits = 0xABCDEF1234567890123456789ABC
 
-        packet = ADSBMath.calculate_crc(bits)
+        packet = ADSBAlgorithms.calculate_crc(bits)
 
         crc = packet & 0xFFFFFF
 
@@ -40,7 +40,7 @@ class TestEncodeCRC:
         ],
     )
     def test_is_deterministic(self, bits):
-        assert ADSBMath.calculate_crc(bits) == ADSBMath.calculate_crc(bits)
+        assert ADSBAlgorithms.calculate_crc(bits) == ADSBAlgorithms.calculate_crc(bits)
 
     @pytest.mark.parametrize(
         "bits",
@@ -54,8 +54,8 @@ class TestEncodeCRC:
     def test_crc_changes_when_message_changes(self, bits):
         modified = bits ^ 1
 
-        crc1 = ADSBMath.calculate_crc(bits) & 0xFFFFFF
-        crc2 = ADSBMath.calculate_crc(modified) & 0xFFFFFF
+        crc1 = ADSBAlgorithms.calculate_crc(bits) & 0xFFFFFF
+        crc2 = ADSBAlgorithms.calculate_crc(modified) & 0xFFFFFF
 
         assert crc1 != crc2
 
@@ -106,5 +106,5 @@ class TestEncodeCRC:
     ]
     )
     def test_known_vectors(self, bits, expected_crc):
-        packet = ADSBMath.calculate_crc(int(bits))
+        packet = ADSBAlgorithms.calculate_crc(int(bits))
         assert packet & 0xFFFFFF == expected_crc
