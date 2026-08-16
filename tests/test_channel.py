@@ -362,3 +362,89 @@ class TestApplyDCOffset:
         result = self.ch._apply_dc_offset(signal, 0.01, 0.02)
         assert result.shape == (0,)
         assert result.dtype == np.complex128
+
+
+class TestApplyFreqOffset:
+    def setup_method(self):
+        self.ch = ADSBChannel(seed=42)
+
+    def test_returns_ndarray(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        assert isinstance(result, np.ndarray)
+
+    def test_returns_complex_dtype(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        assert np.iscomplexobj(result)
+
+    def test_preserves_shape(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        assert result.shape == signal.shape
+
+    def test_zero_offset_returns_unchanged_signal(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        result = self.ch._apply_freq_offset(signal, 0.0, 1000.0)
+        np.testing.assert_array_equal(result, signal)
+
+    def test_first_sample_is_unchanged(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        assert result[0] == signal[0]
+
+    def test_preserves_magnitude(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        np.testing.assert_allclose(np.abs(result), np.ones(10))
+
+    def test_rotates_by_expected_phase(self):
+        signal = np.ones(5, dtype=np.complex128)
+        result = self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        expected_phase = 2 * np.pi * 100.0 * np.arange(5) / 1000.0
+        np.testing.assert_allclose(np.angle(result), expected_phase)
+
+    def test_rotates_by_expected_phase_90_degrees(self):
+        signal = np.ones(3, dtype=np.complex128)
+        result = self.ch._apply_freq_offset(signal, 250.0, 1000.0)
+        expected_phase = 2 * np.pi * 250.0 * np.arange(3) / 1000.0
+        np.testing.assert_allclose(np.angle(result), expected_phase)
+
+    def test_negative_offset_rotates_opposite_direction(self):
+        signal = np.ones(10, dtype=np.complex128)
+        positive = self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        negative = self.ch._apply_freq_offset(signal, -100.0, 1000.0)
+        np.testing.assert_allclose(negative, np.conj(positive))
+
+    def test_scale_with_sample_rate(self):
+        signal = np.ones(5, dtype=np.complex128)
+        low_rate = self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        high_rate = self.ch._apply_freq_offset(signal, 100.0, 2000.0)
+        np.testing.assert_allclose(
+            np.angle(high_rate), 0.5 * np.angle(low_rate)
+        )
+
+    def test_applies_to_signal_values(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        result = self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        expected = signal * np.exp(1j * 2 * np.pi * 100.0 * np.arange(2) / 1000.0)
+        np.testing.assert_allclose(result, expected)
+
+    def test_does_not_mutate_input(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        original = signal.copy()
+        self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        np.testing.assert_array_equal(signal, original)
+
+    def test_works_with_real_dtype_input(self):
+        signal = np.ones(5, dtype=np.float64)
+        result = self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        assert np.iscomplexobj(result)
+        expected_phase = 2 * np.pi * 100.0 * np.arange(5) / 1000.0
+        np.testing.assert_allclose(np.angle(result), expected_phase)
+
+    def test_works_with_empty_signal(self):
+        signal = np.array([], dtype=np.complex128)
+        result = self.ch._apply_freq_offset(signal, 100.0, 1000.0)
+        assert result.shape == (0,)
+        assert result.dtype == np.complex128

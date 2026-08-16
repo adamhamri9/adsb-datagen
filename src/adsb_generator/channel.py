@@ -107,3 +107,6 @@ class ADSBChannel:
         dc_offset = dc_offset_i + 1j * dc_offset_q
         return signal + dc_offset
     
+    def _apply_freq_offset(self, signal: np.ndarray, freq_offset: float, sample_rate: float) -> np.ndarray:
+        t = np.arange(len(signal)) / sample_rate
+        return signal * np.exp(1j * 2 * np.pi * freq_offset * t)
