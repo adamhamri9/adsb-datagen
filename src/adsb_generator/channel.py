@@ -113,3 +113,14 @@ class ADSBChannel:
 
     def _apply_phase_offset(self, signal: np.ndarray, phase_offset: float) -> np.ndarray:
         return signal * np.exp(1j * phase_offset)
+
+    def _apply_iq_imbalance(self, signal: np.ndarray, gain_imbalance: float, phase_imbalance: float) -> np.ndarray:
+        phi = np.deg2rad(phase_imbalance)
+        
+        i = signal.real * (1 + gain_imbalance / 2)
+        q = signal.imag * (1 - gain_imbalance / 2)
+        
+        i_out = i * np.cos(phi) + q * np.sin(phi)
+        q_out = i * np.sin(phi) + q * np.cos(phi)
+        
+        return i_out + 1j * q_out

@@ -519,3 +519,82 @@ class TestApplyPhaseOffset:
         result = self.ch._apply_phase_offset(signal, 0.5)
         assert result.shape == (0,)
         assert result.dtype == np.complex128
+
+
+class TestApplyIQImbalance:
+    def setup_method(self):
+        self.ch = ADSBChannel(seed=42)
+
+    def test_returns_ndarray(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch._apply_iq_imbalance(signal, 0.0, 0.0)
+        assert isinstance(result, np.ndarray)
+
+    def test_returns_complex_dtype(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch._apply_iq_imbalance(signal, 0.0, 0.0)
+        assert np.iscomplexobj(result)
+
+    def test_preserves_shape(self):
+        signal = np.ones((4, 32), dtype=np.complex128)
+        result = self.ch._apply_iq_imbalance(signal, 0.0, 0.0)
+        assert result.shape == signal.shape
+
+    def test_zero_imbalance_returns_unchanged_signal(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        result = self.ch._apply_iq_imbalance(signal, 0.0, 0.0)
+        np.testing.assert_array_equal(result, signal)
+
+    def test_gain_only_increases_real_decreases_imag(self):
+        signal = np.array([1.0 + 1.0j], dtype=np.complex128)
+        result = self.ch._apply_iq_imbalance(signal, 0.2, 0.0)
+        expected = np.array([1.1 + 0.9j], dtype=np.complex128)
+        np.testing.assert_allclose(result, expected)
+
+    def test_gain_only_symmetry(self):
+        signal = np.array([1.0 + 1.0j, -1.0 + 1.0j], dtype=np.complex128)
+        result = self.ch._apply_iq_imbalance(signal, 0.4, 0.0)
+        expected = np.array([1.2 + 0.8j, -1.2 + 0.8j], dtype=np.complex128)
+        np.testing.assert_allclose(result, expected)
+
+    def test_phase_only_cross_coupling(self):
+        signal = np.array([1.0 + 0.0j], dtype=np.complex128)
+        result = self.ch._apply_iq_imbalance(signal, 0.0, 90.0)
+        expected = np.array([0.0 + 1.0j], dtype=np.complex128)
+        np.testing.assert_allclose(result, expected)
+
+    def test_phase_only_imag_to_real(self):
+        signal = np.array([0.0 + 1.0j], dtype=np.complex128)
+        result = self.ch._apply_iq_imbalance(signal, 0.0, 90.0)
+        expected = np.array([1.0 + 0.0j], dtype=np.complex128)
+        np.testing.assert_allclose(result, expected)
+
+    def test_both_imbalances_applied(self):
+        signal = np.array([1.0 + 1.0j], dtype=np.complex128)
+        result = self.ch._apply_iq_imbalance(signal, 0.2, 90.0)
+        expected = np.array([0.9 + 1.1j], dtype=np.complex128)
+        np.testing.assert_allclose(result, expected)
+
+    def test_applies_to_signal_values(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        result = self.ch._apply_iq_imbalance(signal, 0.2, 90.0)
+        expected = np.array([1.8 + 1.1j, 3.6 - 3.3j], dtype=np.complex128)
+        np.testing.assert_allclose(result, expected)
+
+    def test_does_not_mutate_input(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        original = signal.copy()
+        self.ch._apply_iq_imbalance(signal, 0.2, 90.0)
+        np.testing.assert_array_equal(signal, original)
+
+    def test_works_with_real_dtype_input(self):
+        signal = np.ones(5, dtype=np.float64)
+        result = self.ch._apply_iq_imbalance(signal, 0.2, 0.0)
+        assert np.iscomplexobj(result)
+        np.testing.assert_allclose(result.real, np.full(5, 1.1))
+
+    def test_works_with_empty_signal(self):
+        signal = np.array([], dtype=np.complex128)
+        result = self.ch._apply_iq_imbalance(signal, 0.2, 90.0)
+        assert result.shape == (0,)
+        assert result.dtype == np.complex128
