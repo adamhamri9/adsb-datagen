@@ -296,6 +296,51 @@ class TestSampleChannelParams:
             assert 500.0 <= result[ChannelParams.FREQUENCY_OFFSET] <= 510.0
 
 
+    def test_omitted_params_receive_defaults(self):
+        custom = {
+            ChannelParams.SNR_DB: [[10.0, 10.1, 1.0]],
+        }
+        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
+        result = ch._sample_channel_params()
+        assert len(result) == len(ChannelParams)
+        assert result[ChannelParams.NOISE_CORRELATION] == 0.0
+        assert result[ChannelParams.FREQUENCY_OFFSET] == 0.0
+        assert result[ChannelParams.PHASE_OFFSET] == 0.0
+        assert result[ChannelParams.DC_OFFSET_I] == 0.0
+        assert result[ChannelParams.DC_OFFSET_Q] == 0.0
+        assert result[ChannelParams.IQ_GAIN_IMBALANCE] == 0.0
+        assert result[ChannelParams.IQ_PHASE_IMBALANCE] == 0.0
+
+    def test_default_snr_db_when_omitted(self):
+        custom = {
+            ChannelParams.FREQUENCY_OFFSET: [[0.0, 1.0, 1.0]],
+        }
+        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
+        result = ch._sample_channel_params()
+        assert result[ChannelParams.SNR_DB] == 15.0
+
+    def test_string_keys_still_returns_all_params(self):
+        custom = {
+            "snr_db": [[0.1, 0.2, 1.0]],
+            "frequency_offset": [[0.1, 0.2, 1.0]],
+        }
+        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
+        result = ch._sample_channel_params()
+        assert len(result) == len(ChannelParams)
+        for key in result:
+            assert isinstance(key, ChannelParams)
+
+    def test_omitted_param_defaults_are_not_sampled(self):
+        custom = {
+            ChannelParams.SNR_DB: [[5.0, 5.1, 1.0]],
+        }
+        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
+        defaults_seen = set()
+        for _ in range(50):
+            result = ch._sample_channel_params()
+            defaults_seen.add(result[ChannelParams.DC_OFFSET_I])
+        assert len(defaults_seen) == 1
+        assert defaults_seen.pop() == 0.0
 class TestApplyDCOffset:
     def setup_method(self):
         self.ch = ADSBChannel(seed=42)

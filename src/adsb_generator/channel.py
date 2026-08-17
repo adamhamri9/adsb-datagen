@@ -104,6 +104,18 @@ class ADSBChannel:
 
     def _sample_channel_params(self) -> dict[ChannelParams, float]:
         sampled_params = {}
+
+        default_values = {
+            ChannelParams.SNR_DB: 15.0,
+            ChannelParams.NOISE_CORRELATION: 0.0,
+            ChannelParams.FREQUENCY_OFFSET: 0.0,
+            ChannelParams.PHASE_OFFSET: 0.0,
+            ChannelParams.DC_OFFSET_I: 0.0,
+            ChannelParams.DC_OFFSET_Q: 0.0,
+            ChannelParams.IQ_GAIN_IMBALANCE: 0.0,
+            ChannelParams.IQ_PHASE_IMBALANCE: 0.0,
+        }
+
         for param_key, intervals in self.channel_params_dists.items(): 
             ranges = [(low, high) for low, high, _ in intervals]
             weights = [w for _, _, w in intervals]
@@ -114,6 +126,10 @@ class ADSBChannel:
 
             enum_key = param_key if isinstance(param_key, ChannelParams) else ChannelParams(param_key)
             sampled_params[enum_key] = sampled_val
+
+        for param in ChannelParams:
+            if param not in sampled_params:
+                sampled_params[param] = default_values[param]
 
         return sampled_params
 
@@ -140,6 +156,8 @@ class ADSBChannel:
         return i_out + 1j * q_out
 
     def _apply_gaussian_noise(self, signal: np.ndarray, snr_db: float, noise_correlation: float = 0) -> np.ndarray:
+        if len(signal) == 0:
+            return signal.copy()
         signal_power = np.mean(np.abs(signal) ** 2)
         
         snr_linear = 10 ** (snr_db / 10)
