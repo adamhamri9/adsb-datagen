@@ -418,9 +418,12 @@ class TestBuild:
     def setup_method(self):
         self.msg = ADSBMessage(message_type_probs=self.IDENT_ONLY)
 
-    def test_returns_int(self):
+    def test_returns_tuple(self):
         result = self.msg.build()
-        assert isinstance(result, int)
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        assert isinstance(result[0], int)
+        assert isinstance(result[1], MessageType)
 
     def test_result_is_112_bits(self):
         result = self.msg.build()

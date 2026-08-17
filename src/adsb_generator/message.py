@@ -159,7 +159,7 @@ class ADSBMessage():
                 (subtype << 21) | (vrsrc << 20) | (svr << 19) | (vr << 10) | (res << 8) | (sdif << 7) | dalt)
 
 
-    def build(self) -> int:
+    def build(self) -> tuple[int, MessageType]:
         """
         Generates a self._rng ADS-B message based on configured probabilities and calculates its CRC.
 
@@ -170,6 +170,8 @@ class ADSBMessage():
         Returns:
             The complete 112-bit ADS-B message encoded as an integer, including 
             the 24-bit Parity/Interrogation ID (CRC).
+
+            Message type.
         """
         types = list(self.message_type_probs.keys())
         weights = list(self.message_type_probs.values())
@@ -193,4 +195,4 @@ class ADSBMessage():
 
         data = (df << 83) | (ca << 80) | (icao << 56) | me
 
-        return ADSBAlgorithms.calculate_crc(data)
+        return ADSBAlgorithms.calculate_crc(data), selected_type
