@@ -15,7 +15,9 @@ class ChannelParams(Enum):
     IQ_PHASE_IMBALANCE = "iq_phase_imbalance"
 
 class ADSBChannel:
-    def __init__(self, channel_params_distributions: (dict[ChannelParams | str, list[list[float]]]) | None = None, seed: int | None = None):
+    def __init__(self, sample_rate: float = 2e6, channel_params_distributions: (dict[ChannelParams | str, list[list[float]]]) | None = None, seed: int | None = None):
+
+        self.sample_rate = sample_rate
 
         default_dists = {
             ChannelParams.SNR_DB: [
@@ -183,3 +185,15 @@ class ADSBChannel:
             noise_complex = noise_i + 1j * noise_q
         
         return signal + noise_complex
+
+    def apply(self, signal: np.ndarray) -> tuple[np.ndarray, dict[ChannelParams, float]]:
+        params = self._sample_channel_params()
+
+        signal = self._apply_iq_imbalance(signal, params[ChannelParams.IQ_GAIN_IMBALANCE], params[ChannelParams.IQ_PHASE_IMBALANCE])
+        signal = self._apply_dc_offset(signal, params[ChannelParams.DC_OFFSET_I], params[ChannelParams.DC_OFFSET_Q])
+        signal = self._apply_freq_offset(signal, params[ChannelParams.FREQUENCY_OFFSET], self.sample_rate)
+        signal = self._apply_phase_offset(signal, params[ChannelParams.PHASE_OFFSET])
+        signal = self._apply_gaussian_noise(signal, params[ChannelParams.SNR_DB], params[ChannelParams.NOISE_CORRELATION])
+
+        return signal, params
+

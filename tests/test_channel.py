@@ -745,3 +745,149 @@ class TestApplyGaussianNoise:
         noise = result - signal
         corr = np.corrcoef(noise.real, noise.imag)[0, 1]
         assert abs(corr) < 0.1
+
+
+class TestApply:
+    def setup_method(self):
+        self.ch = ADSBChannel(seed=42)
+
+    def test_returns_tuple(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch.apply(signal)
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+
+    def test_returns_ndarray(self):
+        signal = np.ones(10, dtype=np.complex128)
+        out_signal, _ = self.ch.apply(signal)
+        assert isinstance(out_signal, np.ndarray)
+
+    def test_returns_channelparams_dict(self):
+        signal = np.ones(10, dtype=np.complex128)
+        _, params = self.ch.apply(signal)
+        assert isinstance(params, dict)
+        for key in params:
+            assert isinstance(key, ChannelParams)
+
+    def test_returns_all_params(self):
+        signal = np.ones(10, dtype=np.complex128)
+        _, params = self.ch.apply(signal)
+        assert len(params) == len(ChannelParams)
+
+    def test_preserves_shape(self):
+        signal = np.ones(10, dtype=np.complex128)
+        out_signal, _ = self.ch.apply(signal)
+        assert out_signal.shape == signal.shape
+
+    def test_returns_complex_dtype(self):
+        signal = np.ones(10, dtype=np.complex128)
+        out_signal, _ = self.ch.apply(signal)
+        assert np.iscomplexobj(out_signal)
+
+    def test_reproducible_with_same_seed(self):
+        ch1 = ADSBChannel(seed=99)
+        ch2 = ADSBChannel(seed=99)
+        signal = np.ones(50, dtype=np.complex128)
+        out1, params1 = ch1.apply(signal)
+        out2, params2 = ch2.apply(signal)
+        np.testing.assert_array_equal(out1, out2)
+        assert params1 == params2
+
+    def test_different_seeds_different_output(self):
+        ch1 = ADSBChannel(seed=1)
+        ch2 = ADSBChannel(seed=2)
+        signal = np.ones(50, dtype=np.complex128)
+        out1, _ = ch1.apply(signal)
+        out2, _ = ch2.apply(signal)
+        assert not np.array_equal(out1, out2)
+
+    def test_does_not_mutate_input(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        original = signal.copy()
+        self.ch.apply(signal)
+        np.testing.assert_array_equal(signal, original)
+
+    def test_zero_impairments_close_to_original(self):
+        custom = {
+            ChannelParams.SNR_DB: [[60.0, 60.0, 1.0]],
+            ChannelParams.NOISE_CORRELATION: [[0.0, 0.0, 1.0]],
+            ChannelParams.FREQUENCY_OFFSET: [[0.0, 0.0, 1.0]],
+            ChannelParams.PHASE_OFFSET: [[0.0, 0.0, 1.0]],
+            ChannelParams.DC_OFFSET_I: [[0.0, 0.0, 1.0]],
+            ChannelParams.DC_OFFSET_Q: [[0.0, 0.0, 1.0]],
+            ChannelParams.IQ_GAIN_IMBALANCE: [[0.0, 0.0, 1.0]],
+            ChannelParams.IQ_PHASE_IMBALANCE: [[0.0, 0.0, 1.0]],
+        }
+        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
+        signal = np.ones(100, dtype=np.complex128)
+        out_signal, _ = ch.apply(signal)
+        np.testing.assert_allclose(out_signal, signal, atol=0.1)
+
+    def test_default_impairments_change_signal(self):
+        signal = np.ones(100, dtype=np.complex128)
+        out_signal, _ = self.ch.apply(signal)
+        assert not np.allclose(out_signal, signal)
+
+    def test_sample_rate_is_used(self):
+        ch_slow = ADSBChannel(sample_rate=1000.0, seed=42)
+        ch_fast = ADSBChannel(sample_rate=1e6, seed=42)
+        custom = {
+            ChannelParams.SNR_DB: [[60.0, 60.0, 1.0]],
+            ChannelParams.FREQUENCY_OFFSET: [[100.0, 100.0, 1.0]],
+        }
+        ch_slow.channel_params_distributions = custom
+        ch_fast.channel_params_distributions = custom
+        signal = np.ones(100, dtype=np.complex128)
+        out_slow, _ = ch_slow.apply(signal)
+        out_fast, _ = ch_fast.apply(signal)
+        assert not np.array_equal(out_slow, out_fast)
+
+    def test_empty_signal(self):
+        signal = np.array([], dtype=np.complex128)
+        out_signal, params = self.ch.apply(signal)
+        assert out_signal.shape == (0,)
+        assert len(params) == len(ChannelParams)
+
+    def test_works_with_real_dtype_input(self):
+        signal = np.ones(100, dtype=np.float64)
+        out_signal, params = self.ch.apply(signal)
+        assert np.iscomplexobj(out_signal)
+        assert out_signal.shape == signal.shape
+        assert len(params) == len(ChannelParams)
+
+    def test_params_match_sampled_values(self):
+        custom = {
+            ChannelParams.SNR_DB: [[20.0, 20.0, 1.0]],
+            ChannelParams.FREQUENCY_OFFSET: [[50.0, 50.0, 1.0]],
+            ChannelParams.PHASE_OFFSET: [[0.1, 0.1, 1.0]],
+            ChannelParams.DC_OFFSET_I: [[0.01, 0.01, 1.0]],
+            ChannelParams.DC_OFFSET_Q: [[0.02, 0.02, 1.0]],
+            ChannelParams.IQ_GAIN_IMBALANCE: [[0.03, 0.03, 1.0]],
+            ChannelParams.IQ_PHASE_IMBALANCE: [[0.5, 0.5, 1.0]],
+        }
+        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
+        signal = np.ones(10, dtype=np.complex128)
+        _, params = ch.apply(signal)
+        assert params[ChannelParams.SNR_DB] == 20.0
+        assert params[ChannelParams.FREQUENCY_OFFSET] == 50.0
+        assert params[ChannelParams.PHASE_OFFSET] == 0.1
+        assert params[ChannelParams.DC_OFFSET_I] == 0.01
+        assert params[ChannelParams.DC_OFFSET_Q] == 0.02
+        assert params[ChannelParams.IQ_GAIN_IMBALANCE] == 0.03
+        assert params[ChannelParams.IQ_PHASE_IMBALANCE] == 0.5
+
+    def test_distortion_order_matters(self):
+        custom = {
+            ChannelParams.SNR_DB: [[60.0, 60.0, 1.0]],
+            ChannelParams.FREQUENCY_OFFSET: [[0.0, 0.0, 1.0]],
+            ChannelParams.PHASE_OFFSET: [[0.0, 0.0, 1.0]],
+            ChannelParams.NOISE_CORRELATION: [[0.0, 0.0, 1.0]],
+            ChannelParams.IQ_GAIN_IMBALANCE: [[0.5, 0.5, 1.0]],
+            ChannelParams.IQ_PHASE_IMBALANCE: [[0.0, 0.0, 1.0]],
+            ChannelParams.DC_OFFSET_I: [[1.0, 1.0, 1.0]],
+            ChannelParams.DC_OFFSET_Q: [[0.0, 0.0, 1.0]],
+        }
+        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
+        signal = np.zeros(10, dtype=np.complex128)
+        out_signal, _ = ch.apply(signal)
+        np.testing.assert_allclose(out_signal, 1.0 + 0.0j, atol=0.1)
