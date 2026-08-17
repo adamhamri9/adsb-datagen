@@ -76,12 +76,25 @@ class ADSBChannel:
                     f"Valid options are the ChannelParams enums or: {valid_values}"
                 )
 
+            enum_key = channel_param if isinstance(channel_param, ChannelParams) else ChannelParams(channel_param)
+
             total_weights = 0.0
             for min_val, max_val, weight in intervals:
                 if min_val > max_val:
                     raise ValueError(
                         f"Invalid range {min_val} > {max_val} in key '{channel_param}'"
                     )
+
+                if enum_key == ChannelParams.NOISE_CORRELATION:
+                    if not (-1.0 <= min_val <= 1.0) or not (-1.0 <= max_val <= 1.0):
+                        raise ValueError(
+                            f"Noise correlation must be in range [-1.0, 1.0]. "
+                            f"Got range [{min_val}, {max_val}] for key '{channel_param}'"
+                        )
+                    if min_val > max_val:
+                        raise ValueError(
+                            f"Invalid noise correlation range: {min_val} > {max_val}"
+                        )
                 total_weights += weight
 
             if not (0.99 <= total_weights <= 1.01):
