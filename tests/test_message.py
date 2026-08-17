@@ -426,22 +426,22 @@ class TestBuild:
         assert isinstance(result[1], MessageType)
 
     def test_result_is_112_bits(self):
-        result = self.msg.build()
-        assert 0 <= result < (1 << 112)
+        msg, _ = self.msg.build()
+        assert 0 <= msg < (1 << 112)
 
     def test_df_field_is_17(self):
-        result = self.msg.build()
-        df = (result >> 107) & 0x1F
+        msg, _ = self.msg.build()
+        df = (msg >> 107) & 0x1F
         assert df == 17
 
     def test_ca_field_in_valid_range(self):
-        result = self.msg.build()
-        ca = (result >> 104) & 0x7
+        msg, _ = self.msg.build()
+        ca = (msg >> 104) & 0x7
         assert 0 <= ca <= 7
 
     def test_icao_field_fits_24_bits(self):
-        result = self.msg.build()
-        icao = (result >> 80) & 0xFFFFFF
+        msg, _ = self.msg.build()
+        icao = (msg >> 80) & 0xFFFFFF
         assert 0 <= icao < (1 << 24)
 
     def test_returns_unique_values(self):
@@ -450,29 +450,29 @@ class TestBuild:
 
     def test_identification_tc_in_valid_range(self):
         for _ in range(50):
-            result = self.msg.build()
-            me = (result >> 24) & 0xFFFFFFFFFFFFFF
+            msg, _ = self.msg.build()
+            me = (msg >> 24) & 0xFFFFFFFFFFFFFF
             tc = (me >> 51) & 0x7
             assert 1 <= tc <= 4
 
     def test_identification_ca_in_valid_range(self):
         for _ in range(50):
-            result = self.msg.build()
-            me = (result >> 24) & 0xFFFFFFFFFFFFFF
+            msg, _ = self.msg.build()
+            me = (msg >> 24) & 0xFFFFFFFFFFFFFF
             ca = (me >> 48) & 0x7
             assert 0 <= ca <= 7
 
     def test_identification_callsign_fits_48_bits(self):
         for _ in range(20):
-            result = self.msg.build()
-            me = (result >> 24) & 0xFFFFFFFFFFFFFF
+            msg, _ = self.msg.build()
+            me = (msg >> 24) & 0xFFFFFFFFFFFFFF
             callsign = me & 0xFFFFFFFFFFFF
             assert callsign < (1 << 48)
 
     def test_crc_is_valid(self):
         from src.adsb_generator.algorithms import ADSBAlgorithms
         for _ in range(20):
-            result = self.msg.build()
-            data_without_crc = result >> 24
+            msg, _ = self.msg.build()
+            data_without_crc = msg >> 24
             recalc = ADSBAlgorithms.calculate_crc(data_without_crc)
-            assert recalc == result
+            assert recalc == msg
