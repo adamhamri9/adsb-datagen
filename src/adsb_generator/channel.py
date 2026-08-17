@@ -58,7 +58,8 @@ class ADSBChannel:
 
         self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         self._rng = random.Random(self._seed)
-
+        self._np_rng = np.random.default_rng(self._seed)
+        
     @property
     def seed(self) -> int:
         """Gets the seed value passed at initialization."""
@@ -124,3 +125,30 @@ class ADSBChannel:
         q_out = i * np.sin(phi) + q * np.cos(phi)
         
         return i_out + 1j * q_out
+
+    def _apply_gaussian_noise(self, signal: np.ndarray, snr_db: float, noise_correlation: float = 0) -> np.ndarray:
+        signal_power = np.mean(np.abs(signal) ** 2)
+        
+        snr_linear = 10 ** (snr_db / 10)
+        
+        noise_power = signal_power / snr_linear
+        noise_std = np.sqrt(noise_power / 2)
+        
+        if noise_correlation > 0:
+            cov_matrix = noise_power / 2 * np.array([
+                [1.0, noise_correlation],
+                [noise_correlation, 1.0]
+            ])
+            
+            noise = self._np_rng.multivariate_normal(
+                mean=[0, 0],
+                cov=cov_matrix,
+                size=len(signal)
+            )
+            noise_complex = noise[:, 0] + 1j * noise[:, 1]
+        else:
+            noise_i = self._np_rng.normal(0, noise_std, len(signal))
+            noise_q = self._np_rng.normal(0, noise_std, len(signal))
+            noise_complex = noise_i + 1j * noise_q
+        
+        return signal + noise_complex

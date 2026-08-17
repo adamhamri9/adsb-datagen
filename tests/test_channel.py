@@ -598,3 +598,105 @@ class TestApplyIQImbalance:
         result = self.ch._apply_iq_imbalance(signal, 0.2, 90.0)
         assert result.shape == (0,)
         assert result.dtype == np.complex128
+
+
+class TestApplyGaussianNoise:
+    def setup_method(self):
+        self.ch = ADSBChannel(seed=42)
+
+    def test_returns_ndarray(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch._apply_gaussian_noise(signal, 20.0)
+        assert isinstance(result, np.ndarray)
+
+    def test_returns_complex_dtype(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch._apply_gaussian_noise(signal, 20.0)
+        assert np.iscomplexobj(result)
+
+    def test_preserves_shape(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.ch._apply_gaussian_noise(signal, 20.0)
+        assert result.shape == signal.shape
+
+    def test_zero_signal_returns_zeros(self):
+        signal = np.zeros(10, dtype=np.complex128)
+        result = self.ch._apply_gaussian_noise(signal, 20.0)
+        np.testing.assert_array_equal(result, np.zeros(10))
+
+    def test_high_snr_close_to_original(self):
+        signal = np.ones(100, dtype=np.complex128)
+        result = self.ch._apply_gaussian_noise(signal, 60.0)
+        np.testing.assert_allclose(result, signal, atol=0.1)
+
+    def test_low_snr_deviates_from_original(self):
+        signal = np.ones(100, dtype=np.complex128)
+        result = self.ch._apply_gaussian_noise(signal, 0.0)
+        assert not np.allclose(result, signal, atol=0.5)
+
+    def test_noise_power_matches_expected_snr(self):
+        signal = np.ones(10000, dtype=np.complex128)
+        snr_db = 20.0
+        snr_linear = 10 ** (snr_db / 10)
+        result = self.ch._apply_gaussian_noise(signal, snr_db)
+        noise = result - signal
+        measured_noise_power = np.mean(np.abs(noise) ** 2)
+        expected_noise_power = 1.0 / snr_linear
+        np.testing.assert_allclose(measured_noise_power, expected_noise_power, rtol=0.15)
+
+    def test_additive_noise(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        result = self.ch._apply_gaussian_noise(signal, 20.0)
+        noise = result - signal
+        assert noise.shape == signal.shape
+        assert np.iscomplexobj(noise)
+
+    def test_does_not_mutate_input(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        original = signal.copy()
+        self.ch._apply_gaussian_noise(signal, 20.0)
+        np.testing.assert_array_equal(signal, original)
+
+    def test_reproducible_with_same_seed(self):
+        ch1 = ADSBChannel(seed=99)
+        ch2 = ADSBChannel(seed=99)
+        signal = np.ones(50, dtype=np.complex128)
+        r1 = ch1._apply_gaussian_noise(signal, 10.0)
+        r2 = ch2._apply_gaussian_noise(signal, 10.0)
+        np.testing.assert_array_equal(r1, r2)
+
+    def test_different_seeds_different_noise(self):
+        ch1 = ADSBChannel(seed=1)
+        ch2 = ADSBChannel(seed=2)
+        signal = np.ones(50, dtype=np.complex128)
+        r1 = ch1._apply_gaussian_noise(signal, 10.0)
+        r2 = ch2._apply_gaussian_noise(signal, 10.0)
+        assert not np.array_equal(r1, r2)
+
+    def test_works_with_real_dtype_input(self):
+        signal = np.ones(100, dtype=np.float64)
+        result = self.ch._apply_gaussian_noise(signal, 20.0)
+        assert np.iscomplexobj(result)
+        assert result.shape == signal.shape
+
+    def test_works_with_empty_signal(self):
+        signal = np.array([], dtype=np.complex128)
+        result = self.ch._apply_gaussian_noise(signal, 20.0)
+        assert result.shape == (0,)
+        assert result.dtype == np.complex128
+
+    def test_noise_iq_correlated_with_correlation(self):
+        ch = ADSBChannel(seed=42)
+        signal = np.ones(10000, dtype=np.complex128)
+        result = ch._apply_gaussian_noise(signal, 10.0, noise_correlation=0.8)
+        noise = result - signal
+        corr = np.corrcoef(noise.real, noise.imag)[0, 1]
+        assert corr > 0.5
+
+    def test_noise_iq_uncorrelated_without_correlation(self):
+        ch = ADSBChannel(seed=42)
+        signal = np.ones(10000, dtype=np.complex128)
+        result = ch._apply_gaussian_noise(signal, 10.0, noise_correlation=0)
+        noise = result - signal
+        corr = np.corrcoef(noise.real, noise.imag)[0, 1]
+        assert abs(corr) < 0.1
