@@ -32,7 +32,7 @@ class ADSBChannel:
         seed (int | None): Seed for the internal random number generator to ensure 
             reproducible channel simulation.
     """
-    def __init__(self, seed: int, sample_rate: float = 2e6, channel_params_distributions: (dict[ChannelParams | str, list[list[float]]]) | None = None):
+    def __init__(self, sample_rate: float = 2e6, channel_params_distributions: (dict[ChannelParams | str, list[list[float]]]) | None = None, seed: int | None = None):
         """
         Initializes the channel simulator with sampling parameters and impairment distributions.
 
@@ -92,7 +92,7 @@ class ADSBChannel:
 
         self._validate_distributions
 
-        self._seed = seed
+        self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         self._rng = random.Random(self._seed)
         self._np_rng = np.random.default_rng(self._seed)
         
