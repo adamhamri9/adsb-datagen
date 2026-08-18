@@ -3,6 +3,7 @@ import numpy as np
 from enum import Enum
 
 class ChannelParams(Enum):
+    """Supported channel impairment parameters for ADS-B signal simulation."""
     SNR_DB = "snr_db"
     NOISE_CORRELATION = "noise_correlation"
 
@@ -15,7 +16,40 @@ class ChannelParams(Enum):
     IQ_PHASE_IMBALANCE = "iq_phase_imbalance"
 
 class ADSBChannel:
+    """
+    Simulates realistic RF channel impairments on ADS-B baseband I/Q signals.
+
+    This class applies a series of channel effects—including IQ imbalance, DC offset,
+    frequency offset, phase offset, and additive white Gaussian noise (AWGN)—to
+    simulate the degradations encountered in real-world ADS-B reception. Each
+    impairment parameter is sampled from configurable probability distributions.
+
+    Attributes:
+        sample_rate (float): Sampling rate in samples per second.
+        channel_params_distributions (dict[ChannelParams | str, list[list[float]]]): 
+            Mapping of channel parameters to their probability distributions defined
+            as intervals with associated weights.
+        seed (int | None): Seed for the internal random number generator to ensure 
+            reproducible channel simulation.
+    """
     def __init__(self, sample_rate: float = 2e6, channel_params_distributions: (dict[ChannelParams | str, list[list[float]]]) | None = None, seed: int | None = None):
+        """
+        Initializes the channel simulator with sampling parameters and impairment distributions.
+
+        Args:
+            sample_rate: Sampling rate in samples per second. Defaults to 2 MHz.
+            channel_params_distributions: A mapping of ChannelParams to probability 
+                distributions defined as lists of [min_val, max_val, weight] intervals. 
+                If None, defaults to distributions covering typical ADS-B reception 
+                conditions for all eight channel parameters.
+            seed: Seed for the internal random number generator to ensure reproducible 
+                channel simulation. If None, the generator is seeded from system randomness.
+
+        Raises:
+            ValueError: If `channel_params_distributions` contains invalid keys, invalid 
+                intervals (min > max), weights that do not sum to 1.0, or noise correlation 
+                values outside [-1.0, 1.0] (validated via `_validate_distributions`).
+        """
 
         self.sample_rate = sample_rate
 
@@ -187,6 +221,21 @@ class ADSBChannel:
         return signal + noise_complex
 
     def apply(self, signal: np.ndarray) -> tuple[np.ndarray, dict[ChannelParams, float]]:
+        """
+        Applies simulated channel impairments to an ADS-B baseband I/Q signal.
+
+        This method samples channel parameters from configured distributions and
+        applies impairments in the following order: IQ imbalance, DC offset,
+        frequency offset, phase offset, and finally additive Gaussian noise.
+
+        Args:
+            signal: Complex I/Q samples of the baseband signal (dtype=np.complex64).
+
+        Returns:
+            A tuple containing:
+                - np.ndarray: The impaired complex I/Q signal (dtype=np.complex64)
+                - dict[ChannelParams, float]: The channel parameters used for this operation
+        """
         params = self._sample_channel_params()
 
         signal = self._apply_iq_imbalance(signal, params[ChannelParams.IQ_GAIN_IMBALANCE], params[ChannelParams.IQ_PHASE_IMBALANCE])
