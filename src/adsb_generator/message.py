@@ -24,7 +24,7 @@ class ADSBMessage():
         seed: int | None = None: Seed for the internal random number generator to ensure reproducible 
             message output.
     """
-    def __init__(self, message_type_probs: dict = None, seed: int | None = None):
+    def __init__(self, seed: int, message_type_probs: dict = None):
         """
         Initializes the instance with message type probabilities.
 
@@ -51,7 +51,7 @@ class ADSBMessage():
         self.message_type_probs = message_type_probs or default_probs
         self._validate_probabilities()
 
-        self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+        self._seed = seed
         self._rng = random.Random(self._seed)
 
         self._CALLSIGN_CHARSET = {
@@ -61,8 +61,8 @@ class ADSBMessage():
         }
 
     @property
-    def seed(self) -> int | None:
-        """Gets the seed value passed at initialization."""
+    def seed(self) -> int:
+        """Gets the seed value."""
         return self._seed
 
 

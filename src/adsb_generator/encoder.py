@@ -23,7 +23,7 @@ class ADSBEncoder:
         seed (int | None): Seed for the internal random number generator to ensure 
             reproducible signal generation.
     """
-    def __init__(self, sample_rate: float = 2e6, tx_params_distributions: (dict[TXParams | str, list[list[float]]]) | None = None, seed: int | None = None):
+    def __init__(self, seed: int, sample_rate: float = 2e6, tx_params_distributions: (dict[TXParams | str, list[list[float]]]) | None = None):
         """
         Initializes the encoder with sampling parameters and transmission parameter distributions.
 
@@ -54,12 +54,12 @@ class ADSBEncoder:
 
         self._validate_distributions
 
-        self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+        self._seed = seed
         self._rng = random.Random(self._seed)
 
     @property
     def seed(self) -> int:
-        """Gets the seed value passed at initialization."""
+        """Gets the seed value."""
         return self._seed
 
     def _validate_distributions(self):
