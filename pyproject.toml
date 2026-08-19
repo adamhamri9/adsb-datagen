@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adsb-generator"
+version = "0.1.0"
+description = "`adsb-generator` produces realistic I/Q (In-phase/Quadrature) samples of clean and impaired ADS-B (Mode S Downlink Format 17) baseband signals, along with the raw 112-bit message and all applied parameters. It implements an infinite iterator that streams reproducible samples with full control over message type distributions, transmission parameters, and channel impairments."
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "MIT"
+requires-python = ">=3.10,<3.14"
+authors = [
+    { name = "Adam Hamri", email = "adamhamri9@proton.me" },
+]
+keywords = ["adsb", "mode-s", "aviation", "signal-generation", "iq-samples", "baseband"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Communications :: Ham Radio",
+]
+dependencies = [
+    "numpy>=1.26.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/adamhamri9/adsb-datagen"
+Repository = "https://github.com/adamhamri9/adsb-datagen"
+Issues = "https://github.com/adamhamri9/adsb-datagen/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
