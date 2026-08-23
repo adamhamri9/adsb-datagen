@@ -84,44 +84,34 @@ class TestValidateDistributions:
 
     def test_rejects_invalid_key_by_enum(self):
         custom = {"INVALID": [[0.0, 1.0, 1.0]]}
-        enc = ADSBEncoder(tx_params_distributions=custom)
         with pytest.raises(ValueError, match="Invalid tx param key"):
-            enc._validate_distributions()
+            ADSBEncoder(tx_params_distributions=custom)
 
     def test_rejects_invalid_key_by_string(self):
         custom = {"bad_key": [[0.0, 1.0, 1.0]]}
-        enc = ADSBEncoder(tx_params_distributions=custom)
         with pytest.raises(ValueError, match="Invalid tx param key"):
-            enc._validate_distributions()
-
-    def test_accepts_string_key_amplitude(self):
-        custom = {"amplitude": [[0.0, 0.5, 0.5], [0.5, 1.0, 0.5]]}
-        enc = ADSBEncoder(tx_params_distributions=custom)
-        enc._validate_distributions()
+            ADSBEncoder(tx_params_distributions=custom)
 
     def test_rejects_min_greater_than_max(self):
         custom = {
             TXParams.AMPLITUDE: [[0.5, 0.0, 1.0]],
         }
-        enc = ADSBEncoder(tx_params_distributions=custom)
         with pytest.raises(ValueError, match="Invalid range"):
-            enc._validate_distributions()
+            ADSBEncoder(tx_params_distributions=custom)
 
     def test_rejects_weights_summing_too_low(self):
         custom = {
             TXParams.AMPLITUDE: [[0.0, 1.0, 0.3]],
         }
-        enc = ADSBEncoder(tx_params_distributions=custom)
         with pytest.raises(ValueError, match="Sum of weights"):
-            enc._validate_distributions()
+            ADSBEncoder(tx_params_distributions=custom)
 
     def test_rejects_weights_summing_too_high(self):
         custom = {
             TXParams.AMPLITUDE: [[0.0, 0.5, 0.6], [0.5, 1.0, 0.6]],
         }
-        enc = ADSBEncoder(tx_params_distributions=custom)
         with pytest.raises(ValueError, match="Sum of weights"):
-            enc._validate_distributions()
+            ADSBEncoder(tx_params_distributions=custom)
 
     def test_boundary_weight_sum_099_is_accepted(self):
         custom = {
@@ -178,14 +168,6 @@ class TestSampleTxParams:
     def test_multiple_calls_produce_varied_values(self):
         amplitudes = {self.enc._sample_tx_params()[TXParams.AMPLITUDE] for _ in range(50)}
         assert len(amplitudes) > 1
-
-    def test_string_key_produces_txparams_enum_key(self):
-        custom = {"amplitude": [[0.1, 0.2, 0.5], [0.2, 0.3, 0.5]]}
-        enc = ADSBEncoder(tx_params_distributions=custom, seed=42)
-        result = enc._sample_tx_params()
-        for key in result:
-            assert isinstance(key, TXParams)
-        assert TXParams.AMPLITUDE in result
 
     def test_values_respect_narrow_custom_range(self):
         custom = {

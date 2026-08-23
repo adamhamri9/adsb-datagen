@@ -19,12 +19,12 @@ class ADSBMessage():
     airborne position, and airborne velocity—complete with 24-bit CRC parity generation.
 
     Attributes:
-        message_type_probs (dict[MessageType | str, float]): Mapping of message 
+        message_type_probs (dict[MessageType, float]): Mapping of message 
             types to their selection probabilities.
         seed: int | None = None: Seed for the internal random number generator to ensure reproducible 
             message output.
     """
-    def __init__(self, message_type_probs: dict = None, seed: int | None = None):
+    def __init__(self, message_type_probs: dict[MessageType, float] = None, seed: int | None = None):
         """
         Initializes the instance with message type probabilities.
 
@@ -67,14 +67,11 @@ class ADSBMessage():
 
 
     def _validate_probabilities(self):
-        valid_types = set(item for item in MessageType)
-        valid_values = set(item.value for item in MessageType)
-
         for msg_type in self.message_type_probs.keys():
-            if msg_type not in valid_types and msg_type not in valid_values:
+            if not isinstance(msg_type, MessageType):
                 raise ValueError(
                     f"Invalid message type key: '{msg_type}'. "
-                    f"Valid options are the MessageType enums or: {valid_values}"
+                    "Valid options are the MessageType enums"
                 )
             
         total= sum(self.message_type_probs.values())
@@ -176,8 +173,6 @@ class ADSBMessage():
         types = list(self.message_type_probs.keys())
         weights = list(self.message_type_probs.values())
         selected_type = self._rng.choices(types, weights, k=1)[0]
-
-        selected_type = MessageType(selected_type) if isinstance(selected_type, str) else selected_type
 
         df = 17                       
         ca = self._rng.randint(0, 7)        

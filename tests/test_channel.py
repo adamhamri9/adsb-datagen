@@ -124,49 +124,34 @@ class TestValidateDistributions:
 
     def test_rejects_invalid_key_by_enum(self):
         custom = {"INVALID": [[0.0, 1.0, 1.0]]}
-        ch = ADSBChannel(channel_params_distributions=custom)
         with pytest.raises(ValueError, match="Invalid channel param key"):
-            ch._validate_distributions()
+            ADSBChannel(channel_params_distributions=custom)
 
     def test_rejects_invalid_key_by_string(self):
         custom = {"bad_key": [[0.0, 1.0, 1.0]]}
-        ch = ADSBChannel(channel_params_distributions=custom)
         with pytest.raises(ValueError, match="Invalid channel param key"):
-            ch._validate_distributions()
-
-    def test_accepts_string_key_snr_db(self):
-        custom = {"snr_db": [[0.0, 0.5, 0.5], [0.5, 1.0, 0.5]]}
-        ch = ADSBChannel(channel_params_distributions=custom)
-        ch._validate_distributions()
-
-    def test_accepts_string_key_frequency_offset(self):
-        custom = {"frequency_offset": [[0.0, 0.5, 0.5], [0.5, 1.0, 0.5]]}
-        ch = ADSBChannel(channel_params_distributions=custom)
-        ch._validate_distributions()
+            ADSBChannel(channel_params_distributions=custom)
 
     def test_rejects_min_greater_than_max(self):
         custom = {
             ChannelParams.SNR_DB: [[0.5, 0.0, 1.0]],
         }
-        ch = ADSBChannel(channel_params_distributions=custom)
         with pytest.raises(ValueError, match="Invalid range"):
-            ch._validate_distributions()
+            ADSBChannel(channel_params_distributions=custom)
 
     def test_rejects_weights_summing_too_low(self):
         custom = {
             ChannelParams.SNR_DB: [[0.0, 1.0, 0.3]],
         }
-        ch = ADSBChannel(channel_params_distributions=custom)
         with pytest.raises(ValueError, match="Sum of weights"):
-            ch._validate_distributions()
+            ADSBChannel(channel_params_distributions=custom)
 
     def test_rejects_weights_summing_too_high(self):
         custom = {
             ChannelParams.SNR_DB: [[0.0, 0.5, 0.6], [0.5, 1.0, 0.6]],
         }
-        ch = ADSBChannel(channel_params_distributions=custom)
         with pytest.raises(ValueError, match="Sum of weights"):
-            ch._validate_distributions()
+            ADSBChannel(channel_params_distributions=custom)
 
     def test_boundary_weight_sum_099_is_accepted(self):
         custom = {
@@ -272,18 +257,6 @@ class TestSampleChannelParams:
         }
         assert len(offsets) > 1
 
-    def test_string_keys_produce_channelparams_enum_keys(self):
-        custom = {
-            "snr_db": [[0.1, 0.2, 1.0]],
-            "frequency_offset": [[0.1, 0.2, 1.0]],
-        }
-        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
-        result = ch._sample_channel_params()
-        for key in result:
-            assert isinstance(key, ChannelParams)
-        assert ChannelParams.SNR_DB in result
-        assert ChannelParams.FREQUENCY_OFFSET in result
-
     def test_values_respect_narrow_custom_range(self):
         custom = {
             ChannelParams.SNR_DB: [[10.0, 10.1, 1.0]],
@@ -318,17 +291,6 @@ class TestSampleChannelParams:
         ch = ADSBChannel(channel_params_distributions=custom, seed=42)
         result = ch._sample_channel_params()
         assert result[ChannelParams.SNR_DB] == 15.0
-
-    def test_string_keys_still_returns_all_params(self):
-        custom = {
-            "snr_db": [[0.1, 0.2, 1.0]],
-            "frequency_offset": [[0.1, 0.2, 1.0]],
-        }
-        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
-        result = ch._sample_channel_params()
-        assert len(result) == len(ChannelParams)
-        for key in result:
-            assert isinstance(key, ChannelParams)
 
     def test_omitted_param_defaults_are_not_sampled(self):
         custom = {

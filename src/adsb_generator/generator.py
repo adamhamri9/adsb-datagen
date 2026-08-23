@@ -29,8 +29,8 @@ class ADSBGenerator():
     Attributes:
         seed (int): Seed used for the internal random number generators.
     """
-    def __init__(self, message_type_probs: dict[MessageType | str, float] | None = None , tx_params_distributions: dict[TXParams | str, list[list[float]]] | None = None,
-                 channel_params_distributions: dict[ChannelParams | str, list[list[float]]] | None = None, sample_rate: float = 2e6, seed: int | None = None):
+    def __init__(self, message_type_probs: dict[MessageType, float] | None = None , tx_params_distributions: dict[TXParams, list[list[float]]] | None = None,
+                 channel_params_distributions: dict[ChannelParams, list[list[float]]] | None = None, sample_rate: float = 2e6, seed: int | None = None):
         """
         Initializes the generator with message, transmission, and channel distributions.
 

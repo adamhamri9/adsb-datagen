@@ -26,13 +26,13 @@ class ADSBChannel:
 
     Attributes:
         sample_rate (float): Sampling rate in samples per second.
-        channel_params_distributions (dict[ChannelParams | str, list[list[float]]]): 
+        channel_params_distributions (dict[ChannelParams, list[list[float]]]): 
             Mapping of channel parameters to their probability distributions defined
             as intervals with associated weights.
         seed (int | None): Seed for the internal random number generator to ensure 
             reproducible channel simulation.
     """
-    def __init__(self, sample_rate: float = 2e6, channel_params_distributions: (dict[ChannelParams | str, list[list[float]]]) | None = None, seed: int | None = None):
+    def __init__(self, sample_rate: float = 2e6, channel_params_distributions: dict[ChannelParams, list[list[float]]] | None = None, seed: int | None = None):
         """
         Initializes the channel simulator with sampling parameters and impairment distributions.
 
@@ -102,17 +102,12 @@ class ADSBChannel:
         return self._seed
 
     def _validate_distributions(self):
-        valid_types = set(ChannelParams)
-        valid_values = {item.value for item in ChannelParams}
-
         for channel_param, intervals in self.channel_params_dists.items():
-            if channel_param not in valid_types and channel_param not in valid_values:
+            if not isinstance(channel_param, ChannelParams):
                 raise ValueError(
                     f"Invalid channel param key: '{channel_param}'. "
-                    f"Valid options are the ChannelParams enums or: {valid_values}"
+                    "Valid options are the ChannelParams enums"
                 )
-
-            enum_key = channel_param if isinstance(channel_param, ChannelParams) else ChannelParams(channel_param)
 
             total_weights = 0.0
             for min_val, max_val, weight in intervals:
@@ -121,7 +116,7 @@ class ADSBChannel:
                         f"Invalid range {min_val} > {max_val} in key '{channel_param}'"
                     )
 
-                if enum_key == ChannelParams.NOISE_CORRELATION:
+                if channel_param == ChannelParams.NOISE_CORRELATION:
                     if not (-1.0 <= min_val <= 1.0) or not (-1.0 <= max_val <= 1.0):
                         raise ValueError(
                             f"Noise correlation must be in range [-1.0, 1.0]. "
@@ -160,8 +155,7 @@ class ADSBChannel:
 
             sampled_val = self._rng.uniform(selected_range[0], selected_range[1])
 
-            enum_key = param_key if isinstance(param_key, ChannelParams) else ChannelParams(param_key)
-            sampled_params[enum_key] = sampled_val
+            sampled_params[param_key] = sampled_val
 
         for param in ChannelParams:
             if param not in sampled_params:

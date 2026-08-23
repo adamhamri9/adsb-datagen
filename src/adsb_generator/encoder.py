@@ -17,13 +17,13 @@ class ADSBEncoder:
 
     Attributes:
         sample_rate (float): Sampling rate in samples per second.
-        tx_params_distributions (dict[TXParams | str, list[list[float]]]): Mapping 
+        tx_params_distributions (dict[TXParams, list[list[float]]]): Mapping 
             of transmission parameters to their probability distributions defined 
             as intervals with associated weights.
         seed (int | None): Seed for the internal random number generator to ensure 
             reproducible signal generation.
     """
-    def __init__(self, sample_rate: float = 2e6, tx_params_distributions: (dict[TXParams | str, list[list[float]]]) | None = None, seed: int | None = None):
+    def __init__(self, sample_rate: float = 2e6, tx_params_distributions: dict[TXParams, list[list[float]]] | None = None, seed: int | None = None):
         """
         Initializes the encoder with sampling parameters and transmission parameter distributions.
 
@@ -63,14 +63,11 @@ class ADSBEncoder:
         return self._seed
 
     def _validate_distributions(self):
-        valid_types = set(TXParams)
-        valid_values = {item.value for item in TXParams}
-
         for tx_param, intervals in self.tx_params_dists.items():
-            if tx_param not in valid_types and tx_param not in valid_values:
+            if not isinstance(tx_param, TXParams):
                 raise ValueError(
                     f"Invalid tx param key: '{tx_param}'. "
-                    f"Valid options are the TXParams enums or: {valid_values}"
+                    "Valid options are the TXParams enums"
                 )
 
             total_weights = 0.0
@@ -96,8 +93,7 @@ class ADSBEncoder:
 
             sampled_val = self._rng.uniform(selected_range[0], selected_range[1])
 
-            enum_key = param_key if isinstance(param_key, TXParams) else TXParams(param_key)
-            sampled_params[enum_key] = sampled_val
+            sampled_params[param_key] = sampled_val
 
         return sampled_params
 
