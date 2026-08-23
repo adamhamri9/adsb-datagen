@@ -52,7 +52,7 @@ class ADSBEncoder:
 
         self.tx_params_dists = tx_params_distributions or default_dists
 
-        self._validate_distributions
+        self._validate_distributions()
 
         self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         self._rng = random.Random(self._seed)
