@@ -60,6 +60,13 @@ class ADSBGenerator():
         """Gets the seed value."""
         return self._seed
 
+    def configure(self, message_type_probs: dict[MessageType, float] | None = None , tx_params_distributions: dict[TXParams, list[list[float]]] | None = None,
+                 channel_params_distributions: dict[ChannelParams, list[list[float]]] | None = None, sample_rate: float  | None = None, seed: int | None = None) -> None:
+        """Update ADSBMessage, ADSBEncoder, and ADSBChannel configurations."""
+        self.builder.configure(message_type_probs, seed)
+        self.encoder.configure(sample_rate, tx_params_distributions, seed)
+        self.channel.configure(sample_rate, channel_params_distributions, seed)
+
     def __iter__(self):
         """
         Yields an infinite stream of ADS-B samples.
