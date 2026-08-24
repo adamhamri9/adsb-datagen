@@ -363,3 +363,71 @@ class TestEncode:
         preamble_pulses = 4
         data_pulses = 112
         assert nonzero == preamble_pulses + data_pulses
+
+class TestConfigure:
+    def setup_method(self):
+        self.enc = ADSBEncoder(seed=42)
+
+    def test_returns_none(self):
+        result = self.enc.configure()
+        assert result is None
+
+    def test_updates_sample_rate(self):
+        self.enc.configure(sample_rate=4e6)
+        assert self.enc.sample_rate == 4e6
+
+    def test_updates_tx_params(self):
+        new_params = {
+            TXParams.AMPLITUDE: [[0.5, 0.5, 1.0]],
+        }
+        self.enc.configure(tx_params_distributions=new_params)
+        assert self.enc.tx_params_dists == new_params
+
+    def test_changes_seed(self):
+        self.enc.configure(seed=99)
+        assert self.enc.seed == 99
+
+    def test_reseeds_rng(self):
+        self.enc.configure(seed=99)
+        sample_a = self.enc._sample_tx_params()
+        self.enc.configure(seed=99)
+        sample_b = self.enc._sample_tx_params()
+        assert sample_a == sample_b
+
+    def test_no_args_preserves_state(self):
+        original_rate = self.enc.sample_rate
+        original_params = dict(self.enc.tx_params_dists)
+        self.enc.configure()
+        assert self.enc.sample_rate == original_rate
+        assert self.enc.tx_params_dists == original_params
+
+    def test_seed_only_preserves_others(self):
+        original_rate = self.enc.sample_rate
+        original_params = dict(self.enc.tx_params_dists)
+        self.enc.configure(seed=99)
+        assert self.enc.sample_rate == original_rate
+        assert self.enc.tx_params_dists == original_params
+
+    def test_sample_rate_only_preserves_seed_and_params(self):
+        original_seed = self.enc.seed
+        original_params = dict(self.enc.tx_params_dists)
+        self.enc.configure(sample_rate=4e6)
+        assert self.enc.seed == original_seed
+        assert self.enc.tx_params_dists == original_params
+
+    def test_validates_rejects_bad_prob_after_update(self):
+        bad = {
+            TXParams.AMPLITUDE: [[0.0, 0.5, 0.6], [0.5, 1.0, 0.6]],
+        }
+        with pytest.raises(ValueError, match="Sum of weights"):
+            self.enc.configure(tx_params_distributions=bad)
+
+    def test_validates_rejects_bad_key_after_update(self):
+        with pytest.raises(ValueError, match="Invalid tx param key"):
+            self.enc.configure(tx_params_distributions={"bad_key": [[0.0, 1.0, 1.0]]})
+
+    def test_sample_rate_affects_encode(self):
+        self.enc.configure(sample_rate=4e6)
+        iq, _ = self.enc.encode(0)
+        expected = int(round(120.0 * 4e6 / 1e6))
+        assert len(iq) == expected
