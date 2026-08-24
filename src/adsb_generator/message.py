@@ -66,6 +66,17 @@ class ADSBMessage():
         return self._seed
 
 
+    def configure(self, message_type_probs: dict[MessageType, float] = None, seed: int | None = None):
+        """Update message probabilities and/or random seed, then validate."""
+        if message_type_probs is not None:
+            self.message_type_probs.update(message_type_probs)
+
+        if seed is not None:
+            self._seed = seed
+            self._rng = random.Random(self._seed)
+
+        self._validate_probabilities()
+
     def _validate_probabilities(self):
         for msg_type in self.message_type_probs.keys():
             if not isinstance(msg_type, MessageType):

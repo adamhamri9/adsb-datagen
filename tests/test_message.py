@@ -476,3 +476,90 @@ class TestBuild:
             data_without_crc = msg >> 24
             recalc = ADSBAlgorithms.calculate_crc(data_without_crc)
             assert recalc == msg
+
+
+class TestConfigure:
+    def setup_method(self):
+        self.msg = ADSBMessage(seed=42)
+
+    def test_returns_none(self):
+        result = self.msg.configure()
+        assert result is None
+
+    def test_updates_probs(self):
+        new_probs = {
+            MessageType.IDENTIFICATION: 1.0,
+            MessageType.SURFACE_POSITION: 0.0,
+            MessageType.AIRBORNE_POSITION: 0.0,
+            MessageType.AIRBORNE_VELOCITY: 0.0,
+        }
+        self.msg.configure(message_type_probs=new_probs)
+        assert self.msg.message_type_probs[MessageType.IDENTIFICATION] == 1.0
+
+    def test_replaces_all_probs(self):
+        new_probs = {
+            MessageType.IDENTIFICATION: 0.5,
+            MessageType.SURFACE_POSITION: 0.2,
+            MessageType.AIRBORNE_POSITION: 0.2,
+            MessageType.AIRBORNE_VELOCITY: 0.1,
+        }
+        self.msg.configure(message_type_probs=new_probs)
+        assert self.msg.message_type_probs == new_probs
+
+    def test_no_args_preserves_state(self):
+        original_probs = dict(self.msg.message_type_probs)
+        self.msg.configure()
+        assert self.msg.message_type_probs == original_probs
+
+    def test_changes_seed(self):
+        self.msg.configure(seed=99)
+        assert self.msg.seed == 99
+
+    def test_reseeds_rng(self):
+        self.msg.configure(seed=99)
+        sample_a = self.msg.build()
+        self.msg.configure(seed=99)
+        sample_b = self.msg.build()
+        assert sample_a == sample_b
+
+    def test_seed_only_preserves_probs(self):
+        original_probs = dict(self.msg.message_type_probs)
+        self.msg.configure(seed=99)
+        assert self.msg.message_type_probs == original_probs
+
+    def test_probs_only_preserves_seed(self):
+        original_seed = self.msg.seed
+        new_probs = {
+            MessageType.IDENTIFICATION: 0.5,
+            MessageType.SURFACE_POSITION: 0.2,
+            MessageType.AIRBORNE_POSITION: 0.2,
+            MessageType.AIRBORNE_VELOCITY: 0.1,
+        }
+        self.msg.configure(message_type_probs=new_probs)
+        assert self.msg.seed == original_seed
+
+    def test_validates_rejects_bad_prob_after_update(self):
+        bad = {
+            MessageType.IDENTIFICATION: 0.5,
+            MessageType.SURFACE_POSITION: 0.5,
+            MessageType.AIRBORNE_POSITION: 0.5,
+            MessageType.AIRBORNE_VELOCITY: 0.5,
+        }
+        with pytest.raises(ValueError, match="Sum of probabilities"):
+            self.msg.configure(message_type_probs=bad)
+
+    def test_validates_rejects_bad_key_after_update(self):
+        with pytest.raises(ValueError, match="Invalid message type key"):
+            self.msg.configure(message_type_probs={"bad_type": 1.0})
+
+    def test_reconfigure_makes_build_use_new_probs(self):
+        ident_only = {
+            MessageType.IDENTIFICATION: 1.0,
+            MessageType.SURFACE_POSITION: 0.0,
+            MessageType.AIRBORNE_POSITION: 0.0,
+            MessageType.AIRBORNE_VELOCITY: 0.0,
+        }
+        self.msg.configure(message_type_probs=ident_only)
+        for _ in range(50):
+            _, msg_type = self.msg.build()
+            assert msg_type == MessageType.IDENTIFICATION
