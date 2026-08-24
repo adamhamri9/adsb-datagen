@@ -101,6 +101,20 @@ class ADSBChannel:
         """Gets the seed value."""
         return self._seed
 
+    def configure(self, sample_rate: float | None = None, channel_params_distributions: dict[ChannelParams, list[list[float]]] | None = None, seed: int | None = None) -> None:
+        """Update sample_rate and/or tx params distributions, random seed, then validate."""
+        if sample_rate is not None:
+            self.sample_rate = sample_rate
+
+        if channel_params_distributions is not None:
+            self.channel_params_dists.update(channel_params_distributions)
+
+        if seed is not None:
+            self._seed = seed
+            self._rng = random.Random(seed)
+
+        self._validate_distributions()
+
     def _validate_distributions(self):
         for channel_param, intervals in self.channel_params_dists.items():
             if not isinstance(channel_param, ChannelParams):

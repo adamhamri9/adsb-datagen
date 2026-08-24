@@ -853,3 +853,73 @@ class TestApply:
         signal = np.zeros(10, dtype=np.complex128)
         out_signal, _ = ch.apply(signal)
         np.testing.assert_allclose(out_signal, 1.0 + 0.0j, atol=0.1)
+
+
+class TestConfigure:
+    def setup_method(self):
+        self.ch = ADSBChannel(seed=42)
+
+    def test_returns_none(self):
+        result = self.ch.configure()
+        assert result is None
+
+    def test_updates_sample_rate(self):
+        self.ch.configure(sample_rate=4e6)
+        assert self.ch.sample_rate == 4e6
+
+    def test_updates_channel_params(self):
+        new_params = {
+            ChannelParams.SNR_DB: [[10.0, 10.1, 1.0]],
+            ChannelParams.FREQUENCY_OFFSET: [[500.0, 510.0, 1.0]],
+            ChannelParams.PHASE_OFFSET: [[-0.10, 0.10, 1.0]],
+            ChannelParams.NOISE_CORRELATION: [[0.0, 0.0, 1.0]],
+            ChannelParams.IQ_GAIN_IMBALANCE: [[0.00, 0.02, 1.0]],
+            ChannelParams.IQ_PHASE_IMBALANCE: [[-1.0, 1.0, 1.0]],
+            ChannelParams.DC_OFFSET_I: [[-0.01, 0.01, 1.0]],
+            ChannelParams.DC_OFFSET_Q: [[-0.01, 0.01, 1.0]],
+        }
+        self.ch.configure(channel_params_distributions=new_params)
+        assert self.ch.channel_params_dists == new_params
+
+    def test_changes_seed(self):
+        self.ch.configure(seed=99)
+        assert self.ch.seed == 99
+
+    def test_reseeds_rng(self):
+        self.ch.configure(seed=99)
+        sample_a = self.ch._sample_channel_params()
+        self.ch.configure(seed=99)
+        sample_b = self.ch._sample_channel_params()
+        assert sample_a == sample_b
+
+    def test_no_args_preserves_state(self):
+        original_rate = self.ch.sample_rate
+        original_params = dict(self.ch.channel_params_dists)
+        self.ch.configure()
+        assert self.ch.sample_rate == original_rate
+        assert self.ch.channel_params_dists == original_params
+
+    def test_seed_only_preserves_others(self):
+        original_rate = self.ch.sample_rate
+        original_params = dict(self.ch.channel_params_dists)
+        self.ch.configure(seed=99)
+        assert self.ch.sample_rate == original_rate
+        assert self.ch.channel_params_dists == original_params
+
+    def test_sample_rate_only_preserves_seed_and_params(self):
+        original_seed = self.ch.seed
+        original_params = dict(self.ch.channel_params_dists)
+        self.ch.configure(sample_rate=4e6)
+        assert self.ch.seed == original_seed
+        assert self.ch.channel_params_dists == original_params
+
+    def test_validates_rejects_bad_weights_after_update(self):
+        bad = {
+            ChannelParams.SNR_DB: [[0.0, 0.5, 0.6], [0.5, 1.0, 0.6]],
+        }
+        with pytest.raises(ValueError, match="Sum of weights"):
+            self.ch.configure(channel_params_distributions=bad)
+
+    def test_validates_rejects_bad_key_after_update(self):
+        with pytest.raises(ValueError, match="Invalid channel param key"):
+            self.ch.configure(channel_params_distributions={"bad_key": [[0.0, 1.0, 1.0]]})
