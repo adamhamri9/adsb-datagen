@@ -112,6 +112,7 @@ class ADSBChannel:
         if seed is not None:
             self._seed = seed
             self._rng = random.Random(seed)
+            self._np_rng = np.random.default_rng(seed)
 
         self._validate_distributions()
 
