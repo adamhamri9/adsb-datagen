@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from src.adsb_generator.channel import ADSBChannel, ChannelParams
+from src.adsb_generator.types import MissingPolicy
 
 
 class TestChannelParams:
@@ -268,41 +269,6 @@ class TestSampleChannelParams:
             assert 10.0 <= result[ChannelParams.SNR_DB] <= 10.1
             assert 500.0 <= result[ChannelParams.FREQUENCY_OFFSET] <= 510.0
 
-
-    def test_omitted_params_receive_defaults(self):
-        custom = {
-            ChannelParams.SNR_DB: [[10.0, 10.1, 1.0]],
-        }
-        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
-        result = ch._sample_channel_params()
-        assert len(result) == len(ChannelParams)
-        assert result[ChannelParams.NOISE_CORRELATION] == 0.0
-        assert result[ChannelParams.FREQUENCY_OFFSET] == 0.0
-        assert result[ChannelParams.PHASE_OFFSET] == 0.0
-        assert result[ChannelParams.DC_OFFSET_I] == 0.0
-        assert result[ChannelParams.DC_OFFSET_Q] == 0.0
-        assert result[ChannelParams.IQ_GAIN_IMBALANCE] == 0.0
-        assert result[ChannelParams.IQ_PHASE_IMBALANCE] == 0.0
-
-    def test_default_snr_db_when_omitted(self):
-        custom = {
-            ChannelParams.FREQUENCY_OFFSET: [[0.0, 1.0, 1.0]],
-        }
-        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
-        result = ch._sample_channel_params()
-        assert result[ChannelParams.SNR_DB] == 15.0
-
-    def test_omitted_param_defaults_are_not_sampled(self):
-        custom = {
-            ChannelParams.SNR_DB: [[5.0, 5.1, 1.0]],
-        }
-        ch = ADSBChannel(channel_params_distributions=custom, seed=42)
-        defaults_seen = set()
-        for _ in range(50):
-            result = ch._sample_channel_params()
-            defaults_seen.add(result[ChannelParams.DC_OFFSET_I])
-        assert len(defaults_seen) == 1
-        assert defaults_seen.pop() == 0.0
 class TestApplyDCOffset:
     def setup_method(self):
         self.ch = ADSBChannel(seed=42)
@@ -923,3 +889,83 @@ class TestConfigure:
     def test_validates_rejects_bad_key_after_update(self):
         with pytest.raises(ValueError, match="Invalid channel param key"):
             self.ch.configure(channel_params_distributions={"bad_key": [[0.0, 1.0, 1.0]]})
+
+
+class TestGetMissingKeys:
+    def test_all_keys_present(self):
+        ch = ADSBChannel(seed=42)
+        assert ch._get_missing_keys() == set()
+
+    def test_partial_dict(self):
+        partial = {ChannelParams.SNR_DB: [[3.0, 8.0, 1.0]]}
+        ch = ADSBChannel(channel_params_distributions=partial, seed=42)
+        missing = ch._get_missing_keys()
+        assert ChannelParams.SNR_DB not in missing
+        assert ChannelParams.FREQUENCY_OFFSET in missing
+        assert len(missing) == 7
+
+    def test_empty_dict_falls_back_to_defaults(self):
+        ch = ADSBChannel(channel_params_distributions={}, seed=42)
+        assert ch._get_missing_keys() == set()
+
+
+class TestFillMissing:
+    def setup_method(self):
+        self.partial = {ChannelParams.SNR_DB: [[10.0, 10.1, 1.0]]}
+        self.ch = ADSBChannel(channel_params_distributions=self.partial, seed=42)
+
+    def test_raise_sets_policy(self):
+        self.ch.fill_missing(MissingPolicy.RAISE)
+        assert self.ch.missing_policy == MissingPolicy.RAISE
+
+    def test_ignore_sets_policy(self):
+        self.ch.fill_missing(MissingPolicy.IGNORE)
+        assert self.ch.missing_policy == MissingPolicy.IGNORE
+
+    def test_defaults_merges_default_dists(self):
+        self.ch.fill_missing(MissingPolicy.DEFAULTS)
+        assert ChannelParams.FREQUENCY_OFFSET in self.ch.channel_params_dists
+        assert ChannelParams.IQ_GAIN_IMBALANCE in self.ch.channel_params_dists
+
+    def test_defaults_overwrites_existing(self):
+        self.ch.fill_missing(MissingPolicy.DEFAULTS)
+        assert self.ch.channel_params_dists[ChannelParams.SNR_DB] != [[10.0, 10.1, 1.0]]
+
+    def test_constants_stores_values(self):
+        missing = self.ch._get_missing_keys()
+        values = {k: 42.0 for k in missing}
+        self.ch.fill_missing(MissingPolicy.CONSTANTS, values=values)
+        assert self.ch.missing_policy == MissingPolicy.CONSTANTS
+        for k in missing:
+            assert self.ch.constant_values[k] == 42.0
+
+    def test_constants_missing_value_raises(self):
+        missing = self.ch._get_missing_keys()
+        values = {k: 1.0 for k in list(missing)[:-1]}
+        with pytest.raises(ValueError, match="Missing constant value"):
+            self.ch.fill_missing(MissingPolicy.CONSTANTS, values=values)
+
+    def test_sample_constants_returns_constant_values(self):
+        missing = self.ch._get_missing_keys()
+        values = {k: 99.0 for k in missing}
+        self.ch.fill_missing(MissingPolicy.CONSTANTS, values=values)
+        params = self.ch._sample_channel_params()
+        for k in missing:
+            assert params[k] == 99.0
+
+    def test_sample_ignore_returns_zero_for_missing(self):
+        self.ch.fill_missing(MissingPolicy.IGNORE)
+        params = self.ch._sample_channel_params()
+        for k in self.ch._get_missing_keys():
+            assert params[k] == 0.0
+
+    def test_sample_defaults_samples_from_defaults(self):
+        self.ch.fill_missing(MissingPolicy.DEFAULTS)
+        params = self.ch._sample_channel_params()
+        assert ChannelParams.FREQUENCY_OFFSET in params
+        assert isinstance(params[ChannelParams.FREQUENCY_OFFSET], float)
+
+    def test_raise_with_missing_keys_validates(self):
+        self.ch.fill_missing(MissingPolicy.RAISE)
+        with pytest.raises(ValueError, match="Missing required parameters"):
+            self.ch._validate_distributions()

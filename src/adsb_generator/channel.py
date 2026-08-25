@@ -1,6 +1,7 @@
 import random
 import numpy as np
 from enum import Enum
+from .types import MissingPolicy
 
 class ChannelParams(Enum):
     """Supported channel impairment parameters for ADS-B signal simulation."""
@@ -53,7 +54,7 @@ class ADSBChannel:
 
         self.sample_rate = sample_rate
 
-        default_dists = {
+        self.default_dists = {
             ChannelParams.SNR_DB: [
                 [3.0, 8.0, 0.20],
                 [8.0, 15.0, 0.55],
@@ -88,7 +89,10 @@ class ADSBChannel:
             ],
         }
 
-        self.channel_params_dists = channel_params_distributions or default_dists
+        self.channel_params_dists = channel_params_distributions or self.default_dists
+
+        self.missing_policy = MissingPolicy.IGNORE
+        self.constant_values = {}
 
         self._validate_distributions()
 
@@ -116,7 +120,43 @@ class ADSBChannel:
 
         self._validate_distributions()
 
+    def fill_missing(self, policy: MissingPolicy, values: dict[ChannelParams, float] | None = None) -> None:
+        """
+        Configure the missing channel parameters handling policy.
+
+        Args:
+            policy: The missing policy to apply (RAISE, IGNORE, DEFAULTS, or CONSTANTS).
+            values: Required when policy is CONSTANTS. Maps each ChannelParams key to its constant value.
+        """
+        self.missing_policy = policy
+        missing_keys = self._get_missing_keys()
+
+        if policy == MissingPolicy.DEFAULTS:
+            self.channel_params_dists.update(self.default_dists)
+        elif policy == MissingPolicy.CONSTANTS:
+            for key in missing_keys:
+                if key in values:
+                    self.constant_values[key] = values[key]
+                else:
+                    raise ValueError(
+                        f"Missing constant value for '{key.value}'. "
+                        f"Please provide a value in the 'values' dictionary."
+                    )
+
+            
+    def _get_missing_keys(self) -> set:
+        return set(self.default_dists.keys()) - set(self.channel_params_dists.keys())
+        
+
     def _validate_distributions(self):
+        if self.missing_policy == MissingPolicy.RAISE:
+            missing_keys = self._get_missing_keys()
+            if missing_keys:
+                raise ValueError(
+                    f"Missing required parameters: {[key.value for key in missing_keys]}. "
+                    f"Current policy is RAISE. Use fill_missing() to change policy."
+                )
+        
         for channel_param, intervals in self.channel_params_dists.items():
             if not isinstance(channel_param, ChannelParams):
                 raise ValueError(
@@ -151,17 +191,6 @@ class ADSBChannel:
     def _sample_channel_params(self) -> dict[ChannelParams, float]:
         sampled_params = {}
 
-        default_values = {
-            ChannelParams.SNR_DB: 15.0,
-            ChannelParams.NOISE_CORRELATION: 0.0,
-            ChannelParams.FREQUENCY_OFFSET: 0.0,
-            ChannelParams.PHASE_OFFSET: 0.0,
-            ChannelParams.DC_OFFSET_I: 0.0,
-            ChannelParams.DC_OFFSET_Q: 0.0,
-            ChannelParams.IQ_GAIN_IMBALANCE: 0.0,
-            ChannelParams.IQ_PHASE_IMBALANCE: 0.0,
-        }
-
         for param_key, intervals in self.channel_params_dists.items(): 
             ranges = [(low, high) for low, high, _ in intervals]
             weights = [w for _, _, w in intervals]
@@ -172,9 +201,12 @@ class ADSBChannel:
 
             sampled_params[param_key] = sampled_val
 
-        for param in ChannelParams:
-            if param not in sampled_params:
-                sampled_params[param] = default_values[param]
+        if self.missing_policy == MissingPolicy.CONSTANTS:
+            sampled_params.update(self.constant_values)
+
+        elif self.missing_policy == MissingPolicy.IGNORE:
+            for key in self._get_missing_keys():
+                sampled_params[key] = 0.0
 
         return sampled_params
 
