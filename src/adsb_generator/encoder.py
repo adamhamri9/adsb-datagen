@@ -1,6 +1,7 @@
 import random
 import numpy as np
 from enum import Enum
+from .types import MissingPolicy
 
 class TXParams(Enum):
     AMPLITUDE = "amplitude"
@@ -43,14 +44,17 @@ class ADSBEncoder:
         """
         self.sample_rate = sample_rate
 
-        default_dists = {
+        self.default_dists = {
                 TXParams.AMPLITUDE: [
                     [0.05, 0.25, 0.5],
                     [0.25, 0.65, 0.3],
                     [0.65, 1.00, 0.2]
                 ]}
 
-        self.tx_params_dists = tx_params_distributions or default_dists
+        self.tx_params_dists = tx_params_distributions or self.default_dists
+
+        self.missing_policy = MissingPolicy.IGNORE
+        self.constant_values = {}
 
         self._validate_distributions()
 
@@ -75,9 +79,44 @@ class ADSBEncoder:
             self._rng = random.Random(seed)
 
         self._validate_distributions()
+
+    def fill_missing(self, policy: MissingPolicy, values: dict[TXParams, float] | None = None) -> None:
+        """
+        Configure the missing tx parameters handling policy.
+
+        Args:
+            policy: The missing policy to apply (RAISE, IGNORE, DEFAULTS, or CONSTANTS).
+            values: Required when policy is CONSTANTS. Maps each TXParams key to its constant value.
+        """
+        self.missing_policy = policy
+        missing_keys = self._get_missing_keys()
+
+        if policy == MissingPolicy.DEFAULTS:
+            self.tx_params_dists.update(self.default_dists)
+        elif policy == MissingPolicy.CONSTANTS:
+            for key in missing_keys:
+                if key in values:
+                    self.constant_values[key] = values[key]
+                else:
+                    raise ValueError(
+                        f"Missing constant value for '{key.value}'. "
+                        f"Please provide a value in the 'values' dictionary."
+                    )
+                
+
+    def _get_missing_keys(self) -> set:
+        return set(self.default_dists.keys()) - set(self.tx_params_dists.keys())
     
 
     def _validate_distributions(self):
+        if self.missing_policy == MissingPolicy.RAISE:
+            missing_keys = self._get_missing_keys()
+            if missing_keys:
+                raise ValueError(
+                    f"Missing required parameters: {[key.value for key in missing_keys]}. "
+                    f"Current policy is RAISE. Use fill_missing() to change policy."
+                )
+    
         for tx_param, intervals in self.tx_params_dists.items():
             if not isinstance(tx_param, TXParams):
                 raise ValueError(
@@ -109,6 +148,13 @@ class ADSBEncoder:
             sampled_val = self._rng.uniform(selected_range[0], selected_range[1])
 
             sampled_params[param_key] = sampled_val
+
+        if self.missing_policy == MissingPolicy.CONSTANTS:
+            sampled_params.update(self.constant_values)
+
+        elif self.missing_policy == MissingPolicy.IGNORE:
+            for key in self._get_missing_keys():
+                sampled_params[key] = 0.0
 
         return sampled_params
 

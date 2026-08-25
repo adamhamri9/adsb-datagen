@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from src.adsb_generator.encoder import ADSBEncoder, TXParams
+from src.adsb_generator.types import MissingPolicy
 
 
 class TestTXParams:
@@ -431,3 +432,68 @@ class TestConfigure:
         iq, _ = self.enc.encode(0)
         expected = int(round(120.0 * 4e6 / 1e6))
         assert len(iq) == expected
+
+class TestGetMissingKeys:
+    def test_all_keys_present(self):
+        enc = ADSBEncoder(seed=42)
+        assert enc._get_missing_keys() == set()
+
+    def test_partial_dict(self):
+        partial = {TXParams.AMPLITUDE: [[0.5, 1.0, 1.0]]}
+        enc = ADSBEncoder(tx_params_distributions=partial, seed=42)
+        missing = enc._get_missing_keys()
+        assert TXParams.AMPLITUDE not in missing
+        assert len(missing) == 0
+
+    def test_empty_dict_falls_back_to_defaults(self):
+        enc = ADSBEncoder(tx_params_distributions={}, seed=42)
+        assert enc._get_missing_keys() == set()
+
+
+class TestFillMissing:
+    def setup_method(self):
+        self.partial = {TXParams.AMPLITUDE: [[0.5, 1.0, 1.0]]}
+        self.enc = ADSBEncoder(tx_params_distributions=self.partial, seed=42)
+
+    def test_raise_sets_policy(self):
+        self.enc.fill_missing(MissingPolicy.RAISE)
+        assert self.enc.missing_policy == MissingPolicy.RAISE
+
+    def test_ignore_sets_policy(self):
+        self.enc.fill_missing(MissingPolicy.IGNORE)
+        assert self.enc.missing_policy == MissingPolicy.IGNORE
+
+    def test_defaults_merges_default_dists(self):
+        self.enc.fill_missing(MissingPolicy.DEFAULTS)
+        assert TXParams.AMPLITUDE in self.enc.tx_params_dists
+
+    def test_defaults_overwrites_existing(self):
+        self.enc.fill_missing(MissingPolicy.DEFAULTS)
+        assert self.enc.tx_params_dists[TXParams.AMPLITUDE] != [[0.5, 1.0, 1.0]]
+
+    def test_constants_stores_values(self):
+        missing = self.enc._get_missing_keys()
+        values = {k: 42.0 for k in missing}
+        self.enc.fill_missing(MissingPolicy.CONSTANTS, values=values)
+        assert self.enc.missing_policy == MissingPolicy.CONSTANTS
+        for k in missing:
+            assert self.enc.constant_values[k] == 42.0
+
+    def test_sample_constants_returns_constant_values(self):
+        missing = self.enc._get_missing_keys()
+        values = {k: 99.0 for k in missing}
+        self.enc.fill_missing(MissingPolicy.CONSTANTS, values=values)
+        params = self.enc._sample_tx_params()
+        for k in missing:
+            assert params[k] == 99.0
+
+    def test_sample_ignore_returns_zero_for_missing(self):
+        self.enc.fill_missing(MissingPolicy.IGNORE)
+        params = self.enc._sample_tx_params()
+        assert self.enc._get_missing_keys() == set()
+
+    def test_sample_defaults_samples_from_defaults(self):
+        self.enc.fill_missing(MissingPolicy.DEFAULTS)
+        params = self.enc._sample_tx_params()
+        assert TXParams.AMPLITUDE in params
+        assert isinstance(params[TXParams.AMPLITUDE], float)
