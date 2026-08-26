@@ -915,7 +915,9 @@ class TestFillMissing:
         self.ch = ADSBChannel(channel_params_distributions=self.partial, seed=42)
 
     def test_raise_sets_policy(self):
-        self.ch.fill_missing(MissingPolicy.RAISE)
+        with pytest.raises(ValueError, match="Missing required parameters"):
+            self.ch.fill_missing(MissingPolicy.RAISE)
+
         assert self.ch.missing_policy == MissingPolicy.RAISE
 
     def test_ignore_sets_policy(self):
@@ -966,6 +968,5 @@ class TestFillMissing:
         assert isinstance(params[ChannelParams.FREQUENCY_OFFSET], float)
 
     def test_raise_with_missing_keys_validates(self):
-        self.ch.fill_missing(MissingPolicy.RAISE)
         with pytest.raises(ValueError, match="Missing required parameters"):
-            self.ch._validate_distributions()
+            self.ch.fill_missing(MissingPolicy.RAISE)

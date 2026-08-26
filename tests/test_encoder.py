@@ -456,7 +456,8 @@ class TestFillMissing:
         self.enc = ADSBEncoder(tx_params_distributions=self.partial, seed=42)
 
     def test_raise_sets_policy(self):
-        self.enc.fill_missing(MissingPolicy.RAISE)
+        with pytest.raises(ValueError, match="Missing required parameters"):
+            self.enc.fill_missing(MissingPolicy.RAISE)
         assert self.enc.missing_policy == MissingPolicy.RAISE
 
     def test_ignore_sets_policy(self):
