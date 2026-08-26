@@ -94,6 +94,11 @@ class ADSBEncoder:
         if policy == MissingPolicy.DEFAULTS:
             self.tx_params_dists.update(self.default_dists)
         elif policy == MissingPolicy.CONSTANTS:
+            if values is None:
+                raise ValueError(
+                    "Constant values are required when policy is CONSTANTS. "
+                    "Please provide a 'values' dictionary mapping each TXParams key to its constant value."
+                )
             for key in missing_keys:
                 if key in values:
                     self.constant_values[key] = values[key]
