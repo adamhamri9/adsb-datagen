@@ -147,6 +147,8 @@ class ADSBChannel:
                         f"Missing constant value for '{key.value}'. "
                         f"Please provide a value in the 'values' dictionary."
                     )
+        elif policy == MissingPolicy.RAISE:
+            self._validate_distributions()
 
             
     def _get_missing_keys(self) -> set:
