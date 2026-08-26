@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from src.adsb_generator.encoder import ADSBEncoder, TXParams
-from src.adsb_generator.types import MissingPolicy
+from src.adsb_generator.encoder import ADSBEncoder
+from src.adsb_generator.types import MissingPolicy, TXParams
 
 
 class TestTXParams:

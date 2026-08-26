@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from src.adsb_generator.channel import ADSBChannel, ChannelParams
-from src.adsb_generator.types import MissingPolicy
+from src.adsb_generator.channel import ADSBChannel
+from src.adsb_generator.types import MissingPolicy, ChannelParams
 
 
 class TestChannelParams:

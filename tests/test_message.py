@@ -1,6 +1,7 @@
 import pytest
 
-from src.adsb_generator.message import ADSBMessage, MessageType
+from src.adsb_generator.message import ADSBMessage
+from src.adsb_generator.types import MessageType, MissingPolicy
 
 
 class TestMessageType:

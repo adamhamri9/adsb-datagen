@@ -2,13 +2,7 @@ import random
 import string
 from enum import Enum
 from .algorithms import ADSBAlgorithms
-
-class MessageType(Enum):
-    """Supported Automatic Dependent Surveillance-Broadcast (ADS-B) message types."""
-    IDENTIFICATION = "identification"
-    SURFACE_POSITION = "surface_position"
-    AIRBORNE_POSITION = "airborne_position"
-    AIRBORNE_VELOCITY = "airborne_velocity"
+from .types import MessageType
 
 class ADSBMessage():
     """

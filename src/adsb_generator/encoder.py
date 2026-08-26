@@ -1,10 +1,7 @@
 import random
 import numpy as np
 from enum import Enum
-from .types import MissingPolicy
-
-class TXParams(Enum):
-    AMPLITUDE = "amplitude"
+from .types import MissingPolicy, TXParams
 
 class ADSBEncoder:
     """

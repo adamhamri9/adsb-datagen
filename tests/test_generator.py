@@ -2,9 +2,7 @@ import numpy as np
 import pytest
 
 from src.adsb_generator.generator import ADSBGenerator, ADSBSample
-from src.adsb_generator.message import MessageType
-from src.adsb_generator.channel import ChannelParams
-from src.adsb_generator.encoder import TXParams
+from src.adsb_generator.types import MessageType, ChannelParams, TXParams
 
 
 class TestADSBSample:
