@@ -1,25 +1,26 @@
 # adsb-generator
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB.svg)](https://www.python.org/downloads/)
+[![Python 3.10-3.13](https://img.shields.io/badge/Python-3.10--3.13-3776AB.svg)](https://www.python.org/downloads/)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/adamhamri9/adsb-datagen)
 
-**Synthetic ADS-B data generator.**
+**Synthetic ADS-B baseband signal generator with configurable RF channel simulation.**
 
 `adsb-generator` produces realistic I/Q (In-phase/Quadrature) samples of clean and impaired ADS-B (Mode S Downlink Format 17) baseband signals, along with the raw 112-bit message and all applied parameters. It implements an infinite iterator that streams reproducible samples with full control over message type distributions, transmission parameters, and channel impairments.
 
 ## Key Features
 
-- **End-to-end pipeline**: random message generation, PPM encoding, and RF channel simulation in a single call.
-- **Four ADS-B message types**: identification, surface position, airborne position, and airborne velocity with configurable emission probabilities.
-- **Realistic channel impairments**: Gaussian Noise(both AWGN and Correlated) , frequency & phase offset, IQ imbalance, and DC offset, all sampled from configurable probability distributions.
-- **Reproducibility**: deterministic output via a shared seed across all pipeline stages.
-- **Configurable distributions**: override any transmission or channel parameter distribution to model specific receiver conditions or hardware behavior.
-- **NumPy-native**: all signals are `np.complex64` arrays, ready for direct use with any downstream processing tool.
+- **End-to-end pipeline** -- random message generation, PPM encoding, and RF channel simulation in a single call.
+- **Four ADS-B message types** -- identification, surface position, airborne position, and airborne velocity with configurable emission probabilities.
+- **Realistic channel impairments** -- Gaussian noise (both AWGN and correlated), frequency/phase offset, IQ imbalance, and DC offset, all sampled from configurable probability distributions.
+- **Reproducibility** -- deterministic output via a shared seed across all pipeline stages.
+- **Configurable distributions** -- override any transmission or channel parameter distribution to model specific receiver conditions or hardware behavior.
+- **NumPy-native** -- all signals are `np.complex64` arrays, ready for direct use with any downstream processing tool.
 
 ## Requirements
 
-- Python 3.10+
-- NumPy
+- Python 3.10 -- 3.13
+- NumPy >= 1.21.3
 
 ## Installation
 
@@ -71,6 +72,101 @@ gen = ADSBGenerator(
 )
 
 sample = next(gen)
+```
+
+### Updating Configuration at Runtime
+
+Use `configure()` to update distributions, sample rate, or seed on an already-created generator without reconstructing it.
+
+```python
+from adsb_generator import ADSBGenerator, MessageType, ChannelParams, TXParams
+
+gen = ADSBGenerator(seed=42)
+
+# Generate some samples with default configuration
+sample = next(gen)
+
+# Switch to only airborne messages with high SNR
+gen.configure(
+    message_type_probs={
+        MessageType.AIRBORNE_POSITION: 1.0,
+    },
+    channel_params_distributions={
+        ChannelParams.SNR_DB: [[20.0, 25.0, 1.0]],
+    },
+    seed=99,
+)
+
+# Next samples follow the new configuration
+sample = next(gen)
+assert sample.message_type == MessageType.AIRBORNE_POSITION
+```
+
+You can also configure individual components directly:
+
+```python
+from adsb_generator import ADSBGenerator
+
+gen = ADSBGenerator(seed=42)
+
+# ADSBEncoder
+gen.encoder.configure(sample_rate=4e6)
+
+# ADSBChannel
+gen.channel.configure(
+    channel_params_distributions={
+        ChannelParams.SNR_DB: [[10.0, 15.0, 1.0]],
+        ChannelParams.FREQUENCY_OFFSET: [[0.0, 0.0, 1.0]],
+    },
+    seed=99,
+
+# ADSBMessage
+gen.builder.configure(seed=55)
+)
+```
+
+### Handling Missing Parameters
+
+When you only specify a subset of parameters, `fill_missing()` controls how the rest are handled.
+
+```python
+from adsb_generator import ADSBGenerator, MissingPolicy, ChannelParams, TXParams
+
+# Provide only SNR -- other channel params are missing
+partial_dists = {ChannelParams.SNR_DB: [[10.0, 15.0, 1.0]]}
+gen = ADSBGenerator(channel_params_distributions=partial_dists, seed=42)
+
+# Option 1: IGNORE -- missing params default to 0.0
+gen.fill_missing(MissingPolicy.IGNORE)
+sample = next(gen)
+
+# Option 2: DEFAULTS -- fill missing params from built-in defaults
+gen.fill_missing(MissingPolicy.DEFAULTS)
+
+# Option 3: CONSTANTS -- provide exact values for missing params
+gen.fill_missing(MissingPolicy.CONSTANTS, channel_values={
+    ChannelParams.FREQUENCY_OFFSET: 500.0,
+    ChannelParams.PHASE_OFFSET: 0.0,
+    ChannelParams.DC_OFFSET_I: 0.0,
+    ChannelParams.DC_OFFSET_Q: 0.0,
+    ChannelParams.IQ_GAIN_IMBALANCE: 0.01,
+    ChannelParams.IQ_PHASE_IMBALANCE: 0.5,
+    ChannelParams.NOISE_CORRELATION: 0.0,
+})
+
+# Option 4: RAISE -- error if any are missing (strict mode)
+gen.fill_missing(MissingPolicy.RAISE)
+```
+
+The same applies to transmission parameters:
+
+```python
+from adsb_generator import ADSBEncoder, MissingPolicy, TXParams
+
+encoder = ADSBEncoder(seed=42)
+encoder.fill_missing(MissingPolicy.CONSTANTS, values={
+    TXParams.AMPLITUDE: 0.8,
+})
 ```
 
 ## API Reference
@@ -191,4 +287,4 @@ All configurable distributions use the format `[[min_val, max_val, weight], ...]
 
 ## License
 
-[MIT](LICENSE) - Copyright (c) 2026 Adam Hamri (adamhamri9)
+[MIT](LICENSE) -- Copyright (c) 2026 Adam Hamri (adamhamri9)
