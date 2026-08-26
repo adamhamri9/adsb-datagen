@@ -68,7 +68,7 @@ class ADSBGenerator():
         self.encoder.configure(sample_rate, tx_params_distributions, seed)
         self.channel.configure(sample_rate, channel_params_distributions, seed)
 
-    def fill_missin(self, policy: MissingPolicy, tx_values: dict[TXParams, float] | None = None, channel_values: dict[ChannelParams, float] | None = None):
+    def fill_missing(self, policy: MissingPolicy, tx_values: dict[TXParams, float] | None = None, channel_values: dict[ChannelParams, float] | None = None):
         """
         Configure the missing tx parameters & channel parameters handling policy.
 
