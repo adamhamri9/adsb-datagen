@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from .message import ADSBMessage, MessageType
 from .encoder import ADSBEncoder, TXParams
 from .channel import ADSBChannel, ChannelParams
+from .types import MissingPolicy
 
 @dataclass
 class ADSBSample:
@@ -66,6 +67,18 @@ class ADSBGenerator():
         self.builder.configure(message_type_probs, seed)
         self.encoder.configure(sample_rate, tx_params_distributions, seed)
         self.channel.configure(sample_rate, channel_params_distributions, seed)
+
+    def fill_missin(self, policy: MissingPolicy, tx_values: dict[TXParams, float] | None = None, channel_values: dict[ChannelParams, float] | None = None):
+        """
+        Configure the missing tx parameters & channel parameters handling policy.
+
+        Args:
+            policy: The missing policy to apply (RAISE, IGNORE, DEFAULTS, or CONSTANTS).
+            tx_values: Required when policy is CONSTANTS. Maps each TXParams key to its constant value.
+            channel_values: Required when policy is CONSTANTS. Maps each ChannelParams key to its constant value.
+        """
+        self.encoder.fill_missing(policy, tx_values)
+        self.channel.fill_missing(policy, channel_values)
 
     def __iter__(self):
         """
