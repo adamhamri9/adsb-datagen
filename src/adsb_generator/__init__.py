@@ -1,3 +1,5 @@
+__version__ = '0.2.0'
+
 from .generator import ADSBSample, ADSBGenerator
 from .channel import ADSBChannel
 from .encoder import ADSBEncoder
