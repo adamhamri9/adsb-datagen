@@ -80,6 +80,27 @@ class ADSBGenerator():
         self.encoder.fill_missing(policy, tx_values)
         self.channel.fill_missing(policy, channel_values)
 
+    def generate(self, n: int = 1) -> list[ADSBSample]:
+        samples = []
+
+        for _ in range(n):
+            message, message_type = self.builder.build()
+
+            clean_signal, tx_params = self.encoder.encode(message)
+
+            channel_signal, channel_params = self.channel.apply(clean_signal)
+
+            samples.append(ADSBSample(
+                message=message,
+                message_type=message_type,
+                clean_signal=clean_signal,
+                tx_params=tx_params,
+                channel_signal=channel_signal,
+                channel_params=channel_params,
+            ))
+
+        return samples
+
     def __iter__(self):
         """
         Yields an infinite stream of ADS-B samples.
