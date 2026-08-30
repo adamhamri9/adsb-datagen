@@ -214,3 +214,10 @@ class ADSBEncoder:
         iq_samples = signal.astype(np.complex64)
 
         return iq_samples, params
+
+    def clone(self, seed: int | None = None):
+        return ADSBEncoder(
+            sample_rate=self.sample_rate,
+            tx_params_distributions=self.tx_params_dists,
+            seed=seed if seed is not None else self._seed,
+        )

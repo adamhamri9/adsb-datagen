@@ -196,3 +196,9 @@ class ADSBMessage():
         data = (df << 83) | (ca << 80) | (icao << 56) | me
 
         return ADSBAlgorithms.calculate_crc(data), selected_type
+
+    def clone(self, seed: int | None = None):
+        return ADSBMessage(
+            message_type_probs=self.message_type_probs,
+            seed=seed if seed is not None else self._seed,
+        )

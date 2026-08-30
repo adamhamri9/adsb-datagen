@@ -281,3 +281,9 @@ class ADSBChannel:
 
         return signal, params
 
+    def clone(self, seed: int | None = None):
+        return ADSBChannel(
+            sample_rate=self.sample_rate,
+            channel_params_distributions=self.channel_params_dists,
+            seed=seed if seed is not None else self._seed,
+        )
