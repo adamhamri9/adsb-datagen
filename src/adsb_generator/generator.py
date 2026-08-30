@@ -109,35 +109,8 @@ class ADSBGenerator():
         I/Q signal, applies channel impairments, and yields an ADSBSample containing
         the raw message, clean signal, and impaired signal along with their parameters.
         """
-        while True:
-            message, message_type = self.builder.build()
-
-            clean_signal, tx_params = self.encoder.encode(message)
-
-            channel_signal, channel_params = self.channel.apply(clean_signal)
-
-            yield ADSBSample(
-                message=message,
-                message_type=message_type,
-                clean_signal=clean_signal,
-                tx_params=tx_params,
-                channel_signal=channel_signal,
-                channel_params=channel_params,
-            )
+        return self
 
     def __next__(self):
-        message, message_type = self.builder.build()
-
-        clean_signal, tx_params = self.encoder.encode(message)
-
-        channel_signal, channel_params = self.channel.apply(clean_signal)
-
-        return ADSBSample(
-            message=message,
-            message_type=message_type,
-            clean_signal=clean_signal,
-            tx_params=tx_params,
-            channel_signal=channel_signal,
-            channel_params=channel_params,
-        )
+        return self.generate()[0]
         
