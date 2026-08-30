@@ -51,6 +51,7 @@ class ADSBGenerator():
         """
 
         self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+        self.sample_rate = sample_rate
 
         self.builder = ADSBMessage(message_type_probs, self._seed)
         self.encoder = ADSBEncoder(sample_rate, tx_params_distributions, self._seed)
@@ -113,4 +114,12 @@ class ADSBGenerator():
 
     def __next__(self):
         return self.generate()[0]
-        
+
+    def clone(self, seed: int | None = None):
+        return ADSBGenerator(
+            message_type_probs=self.builder.message_type_probs,
+            tx_params_distributions=self.encoder.tx_params_dists,
+            channel_params_distributions=self.channel.channel_params_dists,
+            sample_rate=self.sample_rate,
+            seed=seed if seed is not None else self._seed,
+            )
