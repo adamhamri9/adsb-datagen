@@ -46,7 +46,10 @@ class ADSBMessage():
         self._validate_probabilities()
 
         self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
-        self._rng = random.Random(self._seed)
+        self._rng = random.Random(self._seed)   
+        
+        self._initial_message_type_probs = self.message_type_probs
+        self._initial_seed = self._seed
 
         self._CALLSIGN_CHARSET = {
             " ": 0,
@@ -60,14 +63,16 @@ class ADSBMessage():
         return self._seed
 
 
-    def configure(self, message_type_probs: dict[MessageType, float] = None, seed: int | None = None):
+    def configure(self, message_type_probs: dict[MessageType, float] = None, seed: int | None = None, update_initial: bool = False):
         """Update message probabilities and/or random seed, then validate."""
         if message_type_probs is not None:
             self.message_type_probs.update(message_type_probs)
+            self._initial_message_type_probs = message_type_probs if update_initial is True else self._initial_message_type_probs
 
         if seed is not None:
             self._seed = seed
             self._rng = random.Random(self._seed)
+            self._initial_seed = seed if update_initial else self._initial_seed
 
         self._validate_probabilities()
 
@@ -196,6 +201,10 @@ class ADSBMessage():
         data = (df << 83) | (ca << 80) | (icao << 56) | me
 
         return ADSBAlgorithms.calculate_crc(data), selected_type
+
+    def reset(self) -> None:
+        """Reset class paramters to inital values"""
+        self.__init__(self._initial_message_type_probs, self._initial_seed)
 
     def clone(self, seed: int | None = None):
         return ADSBMessage(
