@@ -75,7 +75,7 @@ class ADSBEncoder:
 
         if tx_params_distributions is not None:
             self.tx_params_dists.update(tx_params_distributions)
-            self._initial_tx_params_distributions = self.tx_params_dists if update_initial else self._initial_tx_params_distributions
+            self._initial_tx_params_distributions = tx_params_distributions if update_initial else self._initial_tx_params_distributions
 
         if seed is not None:
             self._seed = seed
@@ -223,8 +223,9 @@ class ADSBEncoder:
         return iq_samples, params
 
     def reset(self) -> None:
+        """Reset class paramters to inital values"""
         self.__init__(self._initial_sample_rate, self._initial_tx_params_distributions, self._initial_seed)
-        
+
     def clone(self, seed: int | None = None):
         return ADSBEncoder(
             sample_rate=self.sample_rate,
