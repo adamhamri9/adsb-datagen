@@ -52,6 +52,7 @@ class ADSBGenerator():
 
         self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         self.sample_rate = sample_rate
+        self._initial_sample_rate = sample_rate
 
         self.builder = ADSBMessage(message_type_probs, self._seed)
         self.encoder = ADSBEncoder(sample_rate, tx_params_distributions, self._seed)
@@ -63,11 +64,13 @@ class ADSBGenerator():
         return self._seed
 
     def configure(self, message_type_probs: dict[MessageType, float] | None = None , tx_params_distributions: dict[TXParams, list[list[float]]] | None = None,
-                 channel_params_distributions: dict[ChannelParams, list[list[float]]] | None = None, sample_rate: float  | None = None, seed: int | None = None) -> None:
+                 channel_params_distributions: dict[ChannelParams, list[list[float]]] | None = None, sample_rate: float  | None = None, seed: int | None = None, update_initial: bool = False) -> None:
         """Update ADSBMessage, ADSBEncoder, and ADSBChannel configurations."""
-        self.builder.configure(message_type_probs, seed)
-        self.encoder.configure(sample_rate, tx_params_distributions, seed)
-        self.channel.configure(sample_rate, channel_params_distributions, seed)
+        self.builder.configure(message_type_probs, seed, update_initial)
+        self.encoder.configure(sample_rate, tx_params_distributions, seed, update_initial)
+        self.channel.configure(sample_rate, channel_params_distributions, seed, update_initial)
+        self.sample_rate = sample_rate
+        self._initial_sample_rate = sample_rate if update_initial else self._initial_sample_rate
 
     def fill_missing(self, policy: MissingPolicy, tx_values: dict[TXParams, float] | None = None, channel_values: dict[ChannelParams, float] | None = None):
         """
@@ -114,6 +117,12 @@ class ADSBGenerator():
 
     def __next__(self):
         return self.generate()[0]
+
+    def reset(self) -> None:
+        self.sample_rate = self._initial_sample_rate
+        self.builder.reset()
+        self.encoder.reset()
+        self.channel.reset()
 
     def clone(self, seed: int | None = None):
         return ADSBGenerator(
