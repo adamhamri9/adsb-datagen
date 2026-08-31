@@ -67,7 +67,7 @@ class ADSBEncoder:
         """Gets the seed value."""
         return self._seed
 
-    def configure(self, sample_rate: float | None = None, tx_params_distributions: dict[TXParams, list[list[float]]] | None = None, seed: int | None = None, update_initial: bool = True) -> None:
+    def configure(self, sample_rate: float | None = None, tx_params_distributions: dict[TXParams, list[list[float]]] | None = None, seed: int | None = None, update_initial: bool = False) -> None:
         """Update sample_rate and/or tx params distributions, random seed, then validate."""
         if sample_rate is not None:
             self.sample_rate = sample_rate
