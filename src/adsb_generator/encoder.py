@@ -58,22 +58,29 @@ class ADSBEncoder:
         self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         self._rng = random.Random(self._seed)
 
+        self._initial_sample_rate = sample_rate
+        self._initial_tx_params_distributions = self.tx_params_dists
+        self._initial_seed = self._seed
+
     @property
     def seed(self) -> int:
         """Gets the seed value."""
         return self._seed
 
-    def configure(self, sample_rate: float | None = None, tx_params_distributions: dict[TXParams, list[list[float]]] | None = None, seed: int | None = None) -> None:
+    def configure(self, sample_rate: float | None = None, tx_params_distributions: dict[TXParams, list[list[float]]] | None = None, seed: int | None = None, update_initial: bool = True) -> None:
         """Update sample_rate and/or tx params distributions, random seed, then validate."""
         if sample_rate is not None:
             self.sample_rate = sample_rate
+            self._initial_sample_rate = sample_rate if update_initial else self._initial_sample_rate
 
         if tx_params_distributions is not None:
             self.tx_params_dists.update(tx_params_distributions)
+            self._initial_tx_params_distributions = self.tx_params_dists if update_initial else self._initial_tx_params_distributions
 
         if seed is not None:
             self._seed = seed
             self._rng = random.Random(seed)
+            self._initial_seed = seed if update_initial else self._initial_seed
 
         self._validate_distributions()
 
@@ -215,6 +222,9 @@ class ADSBEncoder:
 
         return iq_samples, params
 
+    def reset(self) -> None:
+        self.__init__(self._initial_sample_rate, self._initial_tx_params_distributions, self._initial_seed)
+        
     def clone(self, seed: int | None = None):
         return ADSBEncoder(
             sample_rate=self.sample_rate,
