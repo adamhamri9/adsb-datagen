@@ -87,8 +87,8 @@ class ADSBGenerator():
         self.encoder.fill_missing(policy, tx_values)
         self.channel.fill_missing(policy, channel_values)
 
-    def generate(self, n: int = 1) -> list[ADSBSample]:
-        samples = []
+    def generate(self, n: int = 1) -> list[ADSBSample] | None:
+        samples = [] if not self._buffering else None
 
         for _ in range(n):
             message, message_type = self.builder.build()
@@ -97,14 +97,19 @@ class ADSBGenerator():
 
             channel_signal, channel_params = self.channel.apply(clean_signal)
 
-            samples.append(ADSBSample(
+            sample = ADSBSample(
                 message=message,
                 message_type=message_type,
                 clean_signal=clean_signal,
                 tx_params=tx_params,
                 channel_signal=channel_signal,
                 channel_params=channel_params,
-            ))
+            )
+
+            if self._buffering:
+                self._buffer.append(sample)
+            else:
+                samples.append(sample)
 
         return samples
 
