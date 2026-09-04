@@ -58,6 +58,9 @@ class ADSBGenerator():
         self.encoder = ADSBEncoder(sample_rate, tx_params_distributions, self._seed)
         self.channel = ADSBChannel(sample_rate, channel_params_distributions, self._seed)
 
+        self._buffer: list[ADSBSample]
+        self._buffering = False
+
     @property
     def seed(self) -> int:
         """Gets the seed value."""
@@ -117,6 +120,21 @@ class ADSBGenerator():
 
     def __next__(self):
         return self.generate()[0]
+
+    def start_buffering(self) -> None:
+        """Enable buffering of generated samples."""
+        self._buffering = True
+
+    def stop_buffering(self, clear: bool = True) -> None:
+        """
+        Disable buffering and optionally clear the buffer.
+
+        Args:
+            clear: If True, clear the buffer. Defaults to True.
+        """
+        self._buffering = False
+        if clear:
+            self._buffer.clear()
 
     def reset(self) -> None:
         self.sample_rate = self._initial_sample_rate
