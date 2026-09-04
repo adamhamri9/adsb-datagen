@@ -126,6 +126,41 @@ class ADSBGenerator():
     def __next__(self):
         return self.generate()[0]
 
+    def export(self, path: str, samples: list[ADSBSample] | None = None) -> None:
+        from pathlib import Path
+
+        path = Path(path)
+        data = samples if samples is not None else self._buffer
+
+        if path.suffix == ".npz":
+            data_dict = {}
+            for i, sample in enumerate(data):
+                data_dict[f"sample_{i}"] = self._sample_to_dict(sample)
+            np.savez(path, **data_dict)
+
+        elif path.suffix == ".npy":
+            if len(data) == 1:
+                np.save(path, data[0].clean_signal)
+            else:
+                raise ValueError(".npy supports only one sample. Use .npz for multiple samples.")
+
+        else:
+            raise ValueError(
+                f"Unsupported format: {path.suffix}. "
+                "Supported formats: .npz, .npy"
+            )
+
+
+    def _sample_to_dict(self, sample: ADSBSample) -> dict:
+        return {
+            "message": sample.message,
+            "message_type": sample.message_type.value,
+            "clean_signal": sample.clean_signal,   
+            "channel_signal": sample.channel_signal, 
+            "tx_params": sample.tx_params,
+            "channel_params": sample.channel_params,
+        }
+     
     def start_buffering(self) -> None:
         """Enable buffering of generated samples."""
         self._buffering = True
