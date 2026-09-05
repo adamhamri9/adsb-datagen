@@ -58,7 +58,7 @@ class ADSBGenerator():
         self.encoder = ADSBEncoder(sample_rate, tx_params_distributions, self._seed)
         self.channel = ADSBChannel(sample_rate, channel_params_distributions, self._seed)
 
-        self._buffer: list[ADSBSample]
+        self._buffer: list[ADSBSample] = []
         self._buffering = False
 
     @property
