@@ -157,8 +157,8 @@ class ADSBGenerator():
             "message_type": sample.message_type.value,
             "clean_signal": sample.clean_signal,   
             "channel_signal": sample.channel_signal, 
-            "tx_params": sample.tx_params,
-            "channel_params": sample.channel_params,
+            "tx_params": {key.value: val for key, val in sample.tx_params.items()},
+            "channel_params": {key.value: val for key, val in sample.channel_params.items()}
         }
      
     def start_buffering(self) -> None:
