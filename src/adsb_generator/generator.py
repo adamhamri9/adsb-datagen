@@ -131,10 +131,6 @@ class ADSBGenerator():
 
         path = Path(path)
         data = samples if samples is not None else self._buffer
-
-        if clear:
-            self._buffer.clear()
-    
         data_dict = {}
         for i, sample in enumerate(data):
             data_dict[f"sample_{i}"] = self._sample_to_dict(sample)
@@ -172,6 +168,9 @@ class ADSBGenerator():
                 f"Unsupported format: {path.suffix}. "
                 "Supported formats: .npz, .csv"
             )
+
+        if clear:
+            self._buffer.clear()
 
 
     def _sample_to_dict(self, sample: ADSBSample) -> dict:
