@@ -162,7 +162,30 @@ class ADSBGenerator():
                         + list(sample["channel_params"].values())
                     )
                     writer.writerow(row)
+        elif path.suffix == ".json":
+            import json
 
+            with open(path, "w", encoding='utf-8') as f:
+                f.write('[')
+                
+                for idx, (sample_key, sample) in enumerate(data_dict.items()):
+                    if idx > 0:
+                        f.write(',')
+                    
+                    json.dump(
+                        {
+                            sample_key: {
+                                k: v for k, v in sample.items() 
+                                if k not in ("clean_signal", "channel_signal")
+                            }
+                        }, 
+                        f, 
+                        ensure_ascii=False, 
+                        separators=(',', ':')
+                    )
+                
+                f.write(']')
+                
         else:
             raise ValueError(
                 f"Unsupported format: {path.suffix}. "
