@@ -131,11 +131,11 @@ class ADSBGenerator():
 
         path = Path(path)
         data = samples if samples is not None else self._buffer
+        data_dict = {}
+        for i, sample in enumerate(data):
+            data_dict[f"sample_{i}"] = self._sample_to_dict(sample)
 
         if path.suffix == ".npz":
-            data_dict = {}
-            for i, sample in enumerate(data):
-                data_dict[f"sample_{i}"] = self._sample_to_dict(sample)
             np.savez(path, **data_dict)
 
         elif path.suffix == ".npy":
@@ -144,10 +144,35 @@ class ADSBGenerator():
             else:
                 raise ValueError(".npy supports only one sample. Use .npz for multiple samples.")
 
+        elif path.suffix == ".csv":
+            import csv
+
+            with open(path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+
+                base_sample = data_dict["sample_0"]
+                headers = (
+                    ["sample_number"]
+                    + [k for k in base_sample.keys() if k not in ("clean_signal", "channel_signal", "tx_params", "channel_params")]
+                    + list(base_sample["tx_params"].keys())
+                    + list(base_sample["channel_params"].keys())
+                )
+
+                writer.writerow(headers)
+
+                for sample_key, sample in data_dict.items():
+                    row = (
+                        [sample_key]
+                        + [v for k, v in sample.items() if k not in ("clean_signal", "channel_signal", "tx_params", "channel_params")]
+                        + list(sample["tx_params"].values())
+                        + list(sample["channel_params"].values())
+                    )
+                    writer.writerow(row)
+
         else:
             raise ValueError(
                 f"Unsupported format: {path.suffix}. "
-                "Supported formats: .npz, .npy"
+                "Supported formats: .npz, .npy, .csv"
             )
 
 
