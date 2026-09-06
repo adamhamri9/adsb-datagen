@@ -126,11 +126,15 @@ class ADSBGenerator():
     def __next__(self):
         return self.generate()[0]
 
-    def export(self, path: str, samples: list[ADSBSample] | None = None) -> None:
+    def export(self, path: str, samples: list[ADSBSample] | None = None, clear: bool = True) -> None:
         from pathlib import Path
 
         path = Path(path)
         data = samples if samples is not None else self._buffer
+
+        if clear:
+            self._buffer.clear()
+    
         data_dict = {}
         for i, sample in enumerate(data):
             data_dict[f"sample_{i}"] = self._sample_to_dict(sample)
