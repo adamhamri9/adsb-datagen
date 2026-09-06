@@ -138,12 +138,6 @@ class ADSBGenerator():
         if path.suffix == ".npz":
             np.savez(path, **data_dict)
 
-        elif path.suffix == ".npy":
-            if len(data) == 1:
-                np.save(path, data[0].clean_signal)
-            else:
-                raise ValueError(".npy supports only one sample. Use .npz for multiple samples.")
-
         elif path.suffix == ".csv":
             import csv
 
@@ -172,7 +166,7 @@ class ADSBGenerator():
         else:
             raise ValueError(
                 f"Unsupported format: {path.suffix}. "
-                "Supported formats: .npz, .npy, .csv"
+                "Supported formats: .npz, .csv"
             )
 
 
