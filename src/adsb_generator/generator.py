@@ -127,6 +127,21 @@ class ADSBGenerator():
         return self.generate()[0]
 
     def export(self, path: str, samples: list[ADSBSample] | None = None, clear: bool = True) -> None:
+        """
+        Exports samples to a file in npz, csv, json, or jsonl format.
+
+        Args:
+            path: Output file path. The file extension determines the format
+                (.npz, .csv, .json, or .jsonl).
+            samples: List of ADSBSample instances to export. If None, exports
+                samples from the internal buffer.
+            clear: If True, clears the internal buffer after exporting.
+                Defaults to True.
+
+        Raises:
+            ValueError: If no samples are provided and the buffer is empty,
+            ValueError: if the file extension is not supported.
+        """
         from pathlib import Path
 
         path = Path(path)
