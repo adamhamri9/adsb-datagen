@@ -88,8 +88,11 @@ class ADSBGenerator():
         self.channel.fill_missing(policy, channel_values)
 
     def generate(self, n: int = 1) -> list[ADSBSample] | None:
+        if n <= 0:
+            raise ValueError("Number of samples must be positive.")
+            
         samples = [] if not self._buffering else None
-
+        
         for _ in range(n):
             message, message_type = self.builder.build()
 
