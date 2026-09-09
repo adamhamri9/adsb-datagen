@@ -131,6 +131,12 @@ class ADSBGenerator():
 
         path = Path(path)
         data = samples if samples is not None else self._buffer
+
+        if not data:
+            raise ValueError(f"No data to export to {path} ",
+                             "Either provide valid sample, or enable buffering via start_buffering() ",
+                             "and generate samples first")
+        
         data_dict = {}
         for i, sample in enumerate(data):
             data_dict[f"sample_{i}"] = self._sample_to_dict(sample)
