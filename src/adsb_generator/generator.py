@@ -180,16 +180,26 @@ class ADSBGenerator():
                             }
                         }, 
                         f, 
-                        ensure_ascii=False, 
                         separators=(',', ':')
                     )
                 
                 f.write(']')
                 
+        elif path.suffix == '.jsonl':
+            import json
+
+            with open(path, "w", encoding="utf-8") as f:
+                for sample_key, sample in data_dict.items():
+                    filtered_sample = {
+                        k: v for k, v in sample.items() 
+                        if k not in ("clean_signal", "channel_signal")
+                    }
+                    f.write(json.dumps({sample_key: filtered_sample}, separators=(',', ':')) + '\n')
+
         else:
             raise ValueError(
                 f"Unsupported format: {path.suffix}. "
-                "Supported formats: .npz, .csv"
+                "Supported formats: .npz, .csv, json, jsonl"
             )
 
         if clear:
