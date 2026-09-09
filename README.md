@@ -10,12 +10,13 @@
 
 ## Key Features
 
-- **End-to-end pipeline** -- random message generation, PPM encoding, and RF channel simulation in a single call.
-- **Four ADS-B message types** -- identification, surface position, airborne position, and airborne velocity with configurable emission probabilities.
-- **Realistic channel impairments** -- Gaussian noise (both AWGN and correlated), frequency/phase offset, IQ imbalance, and DC offset, all sampled from configurable probability distributions.
-- **Reproducibility** -- deterministic output via a shared seed across all pipeline stages.
-- **Configurable distributions** -- override any transmission or channel parameter distribution to model specific receiver conditions or hardware behavior.
-- **NumPy-native** -- all signals are `np.complex64` arrays, ready for direct use with any downstream processing tool.
+- **End-to-end pipeline**: random message generation, PPM encoding, and RF channel simulation in a single call.
+- **Four ADS-B message types**: identification, surface position, airborne position, and airborne velocity with configurable emission probabilities.
+- **Realistic channel impairments**: Gaussian noise (both AWGN and correlated), frequency/phase offset, IQ imbalance, and DC offset, all sampled from configurable probability distributions.
+- **Reproducibility**: deterministic output via a shared seed across all pipeline stages.
+- **Configurable distributions**: override any transmission or channel parameter distribution to model specific receiver conditions or hardware behavior.
+- **NumPy-native**: all signals are `np.complex64` arrays, ready for direct use with any downstream processing tool.
+- **Export to multiple formats**: save samples as `.npz` (full signal data), `.csv`, `.json`, or `.jsonl` (metadata only).
 
 ## Requirements
 
@@ -169,6 +170,58 @@ encoder.fill_missing(MissingPolicy.CONSTANTS, values={
 })
 ```
 
+### Exporting Samples
+
+Use `export()` to save generated samples to disk. Pass samples directly or use buffering to accumulate them first.
+
+```python
+from adsb_generator import ADSBGenerator
+
+gen = ADSBGenerator(seed=42)
+
+# Export directly by passing samples
+samples = gen.generate(100)
+gen.export("data.npz", samples=samples)
+
+# Or use the buffer to accumulate samples across multiple generate calls
+gen.start_buffering()
+gen.generate(50)
+gen.generate(50)
+gen.export("data.csv")
+```
+
+Four output formats are supported:
+
+| Format | Extension | Signal data | Description |
+|---|---|---|---|
+| NumPy | `.npz` | Included | Full archive with all sample data including I/Q signals. |
+| CSV | `.csv` | Excluded | Flat table with metadata and flattened parameter columns. |
+| JSON | `.json` | Excluded | Array of sample objects with compact formatting. |
+| JSONL | `.jsonl` | Excluded | One JSON object per line, suitable for streaming ingestion. |
+
+```python
+# Save full signal data for offline processing
+gen.export("samples.npz", samples=samples)
+
+# Save metadata-only CSV for analysis
+gen.export("samples.csv", samples=samples)
+
+# Save as JSON for web APIs or inspection
+gen.export("samples.json", samples=samples)
+
+# Save as JSONL for streaming pipelines
+gen.export("samples.jsonl", samples=samples)
+```
+
+By default, `export()` clears the internal buffer after writing. Pass `clear=False` to keep the buffer intact:
+
+```python
+gen.start_buffering()
+gen.generate(100)
+gen.export("data.npz")        # clears buffer
+gen.export("data.csv")        # buffer is empty, raise ValueError
+```
+
 ## API Reference
 
 ### `ADSBGenerator`
@@ -190,6 +243,17 @@ ADSBGenerator(
 | `channel_params_distributions` | `dict` or `None` | Typical ADS-B conditions | Mapping of `ChannelParams` to `[[min, max, weight], ...]` intervals. |
 | `sample_rate` | `float` | `2e6` | Sampling rate in samples per second. |
 | `seed` | `int` or `None` | Random | Seed for deterministic output across all pipeline stages. |
+
+| Method | Returns | Description |
+|---|---|---|
+| `generate(n=1)` | `list[ADSBSample]` or `None` | Generates `n` samples. Returns `None` when buffering is enabled. |
+| `export(path, samples=None, clear=True)` | `None` | Saves samples to file. Supported: `.npz`, `.csv`, `.json`, `.jsonl`. |
+| `start_buffering()` | `None` | Enables buffering mode so `generate()` appends to an internal buffer. |
+| `stop_buffering(clear=True)` | `None` | Disables buffering. If `clear=True`, clears the buffer. |
+| `configure(...)` | `None` | Updates message, channel, and encoder configurations. |
+| `fill_missing(policy, ...)` | `None` | Sets the missing parameter handling policy. |
+| `reset()` | `None` | Resets sample rate and all sub-components to initial values. |
+| `clone(seed=None)` | `ADSBGenerator` | Creates a new generator with the same configuration. |
 
 ---
 
