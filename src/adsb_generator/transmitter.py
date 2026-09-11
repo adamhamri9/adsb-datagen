@@ -46,6 +46,31 @@ class ADSBTransmitter:
                     [0.05, 0.25, 0.5],
                     [0.25, 0.65, 0.3],
                     [0.65, 1.00, 0.2]
+                ],
+                TXParams.RISE_TIME: [
+                    [0.05, 0.06, 0.2],
+                    [0.06, 0.08, 0.6],
+                    [0.08, 0.10, 0.2]
+                ],
+                TXParams.FALL_TIME: [
+                    [0.05, 0.08, 0.2],
+                    [0.08, 0.14, 0.6],
+                    [0.14, 0.20, 0.2]
+                ],
+                TXParams.AMPLITUDE_DROOP: [
+                    [0.00, 0.02, 0.5],
+                    [0.02, 0.05, 0.35],
+                    [0.05, 0.10, 0.15]
+                ],
+                TXParams.PHASE_NOISE_LEVEL: [
+                    [0.001, 0.003, 0.2],
+                    [0.003, 0.010, 0.6],
+                    [0.010, 0.020, 0.2]
+                ],
+                TXParams.PHASE_NOISE_BANDWIDTH: [
+                    [1000.0, 10000.0, 0.2],
+                    [10000.0, 100.0e3, 0.6],
+                    [100.0e3, 500.0e3, 0.2]
                 ]}
 
         self.tx_params_dists = tx_params_distributions or self.default_dists
