@@ -9,6 +9,21 @@ class TestTXParams:
     def test_has_amplitude(self):
         assert TXParams.AMPLITUDE.value == "amplitude"
 
+    def test_has_rise_time(self):
+        assert TXParams.RISE_TIME.value == "rise_time"
+
+    def test_has_fall_time(self):
+        assert TXParams.FALL_TIME.value == "fall_time"
+
+    def test_has_amplitude_droop(self):
+        assert TXParams.AMPLITUDE_DROOP.value == "amplitude_droop"
+
+    def test_has_phase_noise_level(self):
+        assert TXParams.PHASE_NOISE_LEVEL.value == "phase_noise_level"
+
+    def test_has_phase_noise_bandwidth(self):
+        assert TXParams.PHASE_NOISE_BANDWIDTH.value == "phase_noise_bandwidth"
+
     def test_all_params_are_unique(self):
         values = [t.value for t in TXParams]
         assert len(values) == len(set(values))

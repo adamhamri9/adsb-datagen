@@ -8,7 +8,13 @@ class MessageType(Enum):
     AIRBORNE_VELOCITY = "airborne_velocity"
 
 class TXParams(Enum):
+    """Supported transmitter paramaters"""
     AMPLITUDE = "amplitude"
+    RISE_TIME = "rise_time"
+    FALL_TIME = "fall_time"
+    AMPLITUDE_DROOP = "amplitude_droop"
+    PHASE_NOISE_LEVEL = "phase_noise_level"
+    PHASE_NOISE_BANDWIDTH = "phase_noise_bandwidth"
 
 class ChannelParams(Enum):
     """Supported channel impairment parameters for ADS-B signal simulation."""
