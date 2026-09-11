@@ -3,7 +3,7 @@ import numpy as np
 from enum import Enum
 from .types import MissingPolicy, TXParams
 
-class ADSBEncoder:
+class ADSBTransmitter:
     """
     Converts ADS-B raw frames into baseband I/Q samples with randomized transmission parameters.
 
@@ -227,7 +227,7 @@ class ADSBEncoder:
         self.__init__(self._initial_sample_rate, self._initial_tx_params_distributions, self._initial_seed)
 
     def clone(self, seed: int | None = None):
-        return ADSBEncoder(
+        return ADSBTransmitter(
             sample_rate=self.sample_rate,
             tx_params_distributions=self.tx_params_dists,
             seed=seed if seed is not None else self._seed,

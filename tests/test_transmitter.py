@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from src.adsb_generator.encoder import ADSBEncoder
+from src.adsb_generator.transmitter import ADSBTransmitter
 from src.adsb_generator.types import MissingPolicy, TXParams
 
 
@@ -14,17 +14,17 @@ class TestTXParams:
         assert len(values) == len(set(values))
 
 
-class TestADSBEncoderInit:
+class TestADSBTransmitterInit:
     def test_default_sample_rate(self):
-        enc = ADSBEncoder()
+        enc = ADSBTransmitter()
         assert enc.sample_rate == 2e6
 
     def test_custom_sample_rate(self):
-        enc = ADSBEncoder(sample_rate=1e6)
+        enc = ADSBTransmitter(sample_rate=1e6)
         assert enc.sample_rate == 1e6
 
     def test_default_distributions(self):
-        enc = ADSBEncoder()
+        enc = ADSBTransmitter()
         expected = {
             TXParams.AMPLITUDE: [
                 [0.05, 0.25, 0.5],
@@ -38,100 +38,100 @@ class TestADSBEncoderInit:
         custom = {
             TXParams.AMPLITUDE: [[0.0, 0.5, 0.6], [0.5, 1.0, 0.4]],
         }
-        enc = ADSBEncoder(tx_params_distributions=custom)
+        enc = ADSBTransmitter(tx_params_distributions=custom)
         assert enc.tx_params_dists == custom
 
     def test_seed_from_parameter(self):
-        enc = ADSBEncoder(seed=42)
-        enc2 = ADSBEncoder(seed=42)
+        enc = ADSBTransmitter(seed=42)
+        enc2 = ADSBTransmitter(seed=42)
         assert enc._seed == 42
         assert enc2._seed == 42
 
     def test_reproducible_rng_with_same_seed(self):
-        enc1 = ADSBEncoder(seed=123)
-        enc2 = ADSBEncoder(seed=123)
+        enc1 = ADSBTransmitter(seed=123)
+        enc2 = ADSBTransmitter(seed=123)
         v1 = enc1._rng.random()
         v2 = enc2._rng.random()
         assert v1 == v2
 
     def test_different_seeds_different_rng(self):
-        enc1 = ADSBEncoder(seed=1)
-        enc2 = ADSBEncoder(seed=2)
+        enc1 = ADSBTransmitter(seed=1)
+        enc2 = ADSBTransmitter(seed=2)
         v1 = enc1._rng.random()
         v2 = enc2._rng.random()
         assert v1 != v2
 
     def test_default_seed_is_random(self):
-        enc1 = ADSBEncoder()
-        enc2 = ADSBEncoder()
+        enc1 = ADSBTransmitter()
+        enc2 = ADSBTransmitter()
         assert enc1._seed != enc2._seed
 
     def test_seed_property(self):
-        enc = ADSBEncoder(seed=99)
+        enc = ADSBTransmitter(seed=99)
         assert enc._seed == 99
 
 
 class TestValidateDistributions:
     def test_default_distributions_are_valid(self):
-        enc = ADSBEncoder()
+        enc = ADSBTransmitter()
         enc._validate_distributions()
 
     def test_custom_valid_distributions_are_accepted(self):
         custom = {
             TXParams.AMPLITUDE: [[0.0, 0.5, 0.5], [0.5, 1.0, 0.5]],
         }
-        enc = ADSBEncoder(tx_params_distributions=custom)
+        enc = ADSBTransmitter(tx_params_distributions=custom)
         enc._validate_distributions()
 
     def test_rejects_invalid_key_by_enum(self):
         custom = {"INVALID": [[0.0, 1.0, 1.0]]}
         with pytest.raises(ValueError, match="Invalid tx param key"):
-            ADSBEncoder(tx_params_distributions=custom)
+            ADSBTransmitter(tx_params_distributions=custom)
 
     def test_rejects_invalid_key_by_string(self):
         custom = {"bad_key": [[0.0, 1.0, 1.0]]}
         with pytest.raises(ValueError, match="Invalid tx param key"):
-            ADSBEncoder(tx_params_distributions=custom)
+            ADSBTransmitter(tx_params_distributions=custom)
 
     def test_rejects_min_greater_than_max(self):
         custom = {
             TXParams.AMPLITUDE: [[0.5, 0.0, 1.0]],
         }
         with pytest.raises(ValueError, match="Invalid range"):
-            ADSBEncoder(tx_params_distributions=custom)
+            ADSBTransmitter(tx_params_distributions=custom)
 
     def test_rejects_weights_summing_too_low(self):
         custom = {
             TXParams.AMPLITUDE: [[0.0, 1.0, 0.3]],
         }
         with pytest.raises(ValueError, match="Sum of weights"):
-            ADSBEncoder(tx_params_distributions=custom)
+            ADSBTransmitter(tx_params_distributions=custom)
 
     def test_rejects_weights_summing_too_high(self):
         custom = {
             TXParams.AMPLITUDE: [[0.0, 0.5, 0.6], [0.5, 1.0, 0.6]],
         }
         with pytest.raises(ValueError, match="Sum of weights"):
-            ADSBEncoder(tx_params_distributions=custom)
+            ADSBTransmitter(tx_params_distributions=custom)
 
     def test_boundary_weight_sum_099_is_accepted(self):
         custom = {
             TXParams.AMPLITUDE: [[0.0, 1.0, 0.99]],
         }
-        enc = ADSBEncoder(tx_params_distributions=custom)
+        enc = ADSBTransmitter(tx_params_distributions=custom)
         enc._validate_distributions()
 
     def test_boundary_weight_sum_101_is_accepted(self):
         custom = {
             TXParams.AMPLITUDE: [[0.0, 1.0, 1.01]],
         }
-        enc = ADSBEncoder(tx_params_distributions=custom)
+        enc = ADSBTransmitter(tx_params_distributions=custom)
         enc._validate_distributions()
 
 
 class TestSampleTxParams:
     def setup_method(self):
-        self.enc = ADSBEncoder(seed=42)
+        self.enc = ADSBTransmitter(seed=42)
 
     def test_returns_dict(self):
         result = self.enc._sample_tx_params()
@@ -157,13 +157,13 @@ class TestSampleTxParams:
             assert 0.05 <= result[TXParams.AMPLITUDE] <= 1.0
 
     def test_reproducible_with_same_seed(self):
-        enc1 = ADSBEncoder(seed=99)
-        enc2 = ADSBEncoder(seed=99)
+        enc1 = ADSBTransmitter(seed=99)
+        enc2 = ADSBTransmitter(seed=99)
         assert enc1._sample_tx_params() == enc2._sample_tx_params()
 
     def test_different_seeds_different_result(self):
-        enc1 = ADSBEncoder(seed=1)
-        enc2 = ADSBEncoder(seed=2)
+        enc1 = ADSBTransmitter(seed=1)
+        enc2 = ADSBTransmitter(seed=2)
         assert enc1._sample_tx_params() != enc2._sample_tx_params()
 
     def test_multiple_calls_produce_varied_values(self):
@@ -174,7 +174,7 @@ class TestSampleTxParams:
         custom = {
             TXParams.AMPLITUDE: [[0.75, 0.80, 1.0]],
         }
-        enc = ADSBEncoder(tx_params_distributions=custom, seed=42)
+        enc = ADSBTransmitter(tx_params_distributions=custom, seed=42)
         for _ in range(100):
             result = enc._sample_tx_params()
             assert 0.75 <= result[TXParams.AMPLITUDE] <= 0.80
@@ -182,7 +182,7 @@ class TestSampleTxParams:
 
 class TestEncode:
     def setup_method(self):
-        self.enc = ADSBEncoder(seed=42)
+        self.enc = ADSBTransmitter(seed=42)
 
     def test_returns_tuple(self):
         result = self.enc.encode(0)
@@ -209,7 +209,7 @@ class TestEncode:
         assert len(iq) == 240
 
     def test_custom_sample_rate_length(self):
-        enc = ADSBEncoder(sample_rate=1e6, seed=42)
+        enc = ADSBTransmitter(sample_rate=1e6, seed=42)
         iq, _ = enc.encode(0)
         assert len(iq) == 120
 
@@ -256,7 +256,7 @@ class TestEncode:
 
     def test_all_zeros_message_no_first_half_pulses(self):
         for enc_seed in [42, 7, 99]:
-            enc = ADSBEncoder(seed=enc_seed)
+            enc = ADSBTransmitter(seed=enc_seed)
             iq, params = enc.encode(0)
             real = iq.real
             spus = enc.sample_rate / 1e6
@@ -270,7 +270,7 @@ class TestEncode:
     def test_all_ones_message_pulses_in_first_half(self):
         msg = (1 << 112) - 1
         for enc_seed in [42, 7, 99]:
-            enc = ADSBEncoder(seed=enc_seed)
+            enc = ADSBTransmitter(seed=enc_seed)
             iq, params = enc.encode(msg)
             real = iq.real
             spus = enc.sample_rate / 1e6
@@ -285,7 +285,7 @@ class TestEncode:
 
     def test_second_half_zeros_when_bit_is_one(self):
         msg = (1 << 112) - 1
-        enc = ADSBEncoder(seed=42)
+        enc = ADSBTransmitter(seed=42)
         iq, _ = enc.encode(msg)
         real = iq.real
         spus = enc.sample_rate / 1e6
@@ -298,7 +298,7 @@ class TestEncode:
 
     def test_single_bit_set_at_lsb(self):
         msg = 1
-        enc = ADSBEncoder(seed=42)
+        enc = ADSBTransmitter(seed=42)
         iq, params = enc.encode(msg)
         real = iq.real
         spus = enc.sample_rate / 1e6
@@ -312,7 +312,7 @@ class TestEncode:
 
     def test_single_bit_set_at_msb(self):
         msg = 1 << 111
-        enc = ADSBEncoder(seed=42)
+        enc = ADSBTransmitter(seed=42)
         iq, params = enc.encode(msg)
         real = iq.real
         spus = enc.sample_rate / 1e6
@@ -324,16 +324,16 @@ class TestEncode:
             "MSB bit should have pulse in first half"
 
     def test_reproducible_with_same_seed_and_msg(self):
-        enc1 = ADSBEncoder(seed=123)
-        enc2 = ADSBEncoder(seed=123)
+        enc1 = ADSBTransmitter(seed=123)
+        enc2 = ADSBTransmitter(seed=123)
         iq1, params1 = enc1.encode(0xDEADBEEF)
         iq2, params2 = enc2.encode(0xDEADBEEF)
         assert np.array_equal(iq1, iq2)
         assert params1 == params2
 
     def test_different_seeds_different_amplitude(self):
-        enc1 = ADSBEncoder(seed=1)
-        enc2 = ADSBEncoder(seed=2)
+        enc1 = ADSBTransmitter(seed=1)
+        enc2 = ADSBTransmitter(seed=2)
         _, p1 = enc1.encode(0)
         _, p2 = enc2.encode(0)
         assert p1[TXParams.AMPLITUDE] != p2[TXParams.AMPLITUDE]
@@ -345,7 +345,7 @@ class TestEncode:
 
     def test_signal_length_scales_with_sample_rate(self):
         for rate in [1e6, 2e6, 4e6]:
-            enc = ADSBEncoder(sample_rate=rate, seed=42)
+            enc = ADSBTransmitter(sample_rate=rate, seed=42)
             iq, _ = enc.encode(0)
             expected = int(round(120.0 * rate / 1e6))
             assert len(iq) == expected
@@ -356,7 +356,7 @@ class TestEncode:
 
     def test_known_signal_sum(self):
         custom = {TXParams.AMPLITUDE: [[1.0, 1.0, 1.0]]}
-        enc = ADSBEncoder(tx_params_distributions=custom, seed=0)
+        enc = ADSBTransmitter(tx_params_distributions=custom, seed=0)
         iq, params = enc.encode(0)
         assert params[TXParams.AMPLITUDE] == 1.0
 
@@ -367,7 +367,7 @@ class TestEncode:
 
 class TestConfigure:
     def setup_method(self):
-        self.enc = ADSBEncoder(seed=42)
+        self.enc = ADSBTransmitter(seed=42)
 
     def test_returns_none(self):
         result = self.enc.configure()
@@ -435,25 +435,25 @@ class TestConfigure:
 
 class TestGetMissingKeys:
     def test_all_keys_present(self):
-        enc = ADSBEncoder(seed=42)
+        enc = ADSBTransmitter(seed=42)
         assert enc._get_missing_keys() == set()
 
     def test_partial_dict(self):
         partial = {TXParams.AMPLITUDE: [[0.5, 1.0, 1.0]]}
-        enc = ADSBEncoder(tx_params_distributions=partial, seed=42)
+        enc = ADSBTransmitter(tx_params_distributions=partial, seed=42)
         missing = enc._get_missing_keys()
         assert TXParams.AMPLITUDE not in missing
         assert len(missing) == 0
 
     def test_empty_dict_falls_back_to_defaults(self):
-        enc = ADSBEncoder(tx_params_distributions={}, seed=42)
+        enc = ADSBTransmitter(tx_params_distributions={}, seed=42)
         assert enc._get_missing_keys() == set()
 
 
 class TestFillMissing:
     def setup_method(self):
         self.partial = {TXParams.AMPLITUDE: [[0.5, 1.0, 1.0]]}
-        self.enc = ADSBEncoder(tx_params_distributions=self.partial, seed=42)
+        self.enc = ADSBTransmitter(tx_params_distributions=self.partial, seed=42)
 
     def test_raise_sets_policy(self):
         with pytest.raises(ValueError, match="Missing required parameters"):

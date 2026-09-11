@@ -2,7 +2,7 @@ import random
 import numpy as np
 from dataclasses import dataclass
 from .message import ADSBMessage
-from .encoder import ADSBEncoder
+from .transmitter import ADSBTransmitter
 from .channel import ADSBChannel
 from .types import MissingPolicy, MessageType, TXParams, ChannelParams
 
@@ -55,7 +55,7 @@ class ADSBGenerator():
         self._initial_sample_rate = sample_rate
 
         self.builder = ADSBMessage(message_type_probs, self._seed)
-        self.encoder = ADSBEncoder(sample_rate, tx_params_distributions, self._seed)
+        self.encoder = ADSBTransmitter(sample_rate, tx_params_distributions, self._seed)
         self.channel = ADSBChannel(sample_rate, channel_params_distributions, self._seed)
 
         self._buffer: list[ADSBSample] = []
@@ -68,7 +68,7 @@ class ADSBGenerator():
 
     def configure(self, message_type_probs: dict[MessageType, float] | None = None , tx_params_distributions: dict[TXParams, list[list[float]]] | None = None,
                  channel_params_distributions: dict[ChannelParams, list[list[float]]] | None = None, sample_rate: float  | None = None, seed: int | None = None, update_initial: bool = False) -> None:
-        """Update ADSBMessage, ADSBEncoder, and ADSBChannel configurations."""
+        """Update ADSBMessage, ADSBTransmitter, and ADSBChannel configurations."""
         self.builder.configure(message_type_probs, seed, update_initial)
         self.encoder.configure(sample_rate, tx_params_distributions, seed, update_initial)
         self.channel.configure(sample_rate, channel_params_distributions, seed, update_initial)
