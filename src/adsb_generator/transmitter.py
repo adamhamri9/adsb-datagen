@@ -184,6 +184,11 @@ class ADSBTransmitter:
 
         return sampled_params
 
+    def _apply_droop_amplitude(self, signal: np.ndarray, droop_factor: float) -> np.ndarray:
+        if droop_factor <= 0:
+            return signal
+        return signal * np.linspace(1.0, 1.0 - droop_factor, len(signal))
+
     def encode(self, msg: int) -> tuple[np.ndarray, dict[TXParams, float]]:
         """
         Encodes a 112-bit ADS-B message into a complex baseband I/Q signal.
