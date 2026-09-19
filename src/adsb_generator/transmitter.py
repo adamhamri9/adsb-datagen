@@ -156,6 +156,18 @@ class ADSBTransmitter:
                     raise ValueError(
                         f"Invalid range {min_val} > {max_val} in key '{tx_param}'"
                     )
+
+                if tx_param == TXParams.AMPLITUDE_DROOP:
+                    if not (0.0 <= min_val <= 1.0) or not (0.0 <= max_val <= 1.0):
+                        raise ValueError(
+                            f"Amplitude droop must be in range [0.0, 1.0]. "
+                            f"Got range [{min_val}, {max_val}] for key '{tx_param}'"
+                        )
+                    if min_val > max_val:
+                        raise ValueError(
+                            f"Invalid amplitude droop range: {min_val} > {max_val}"
+                        )
+                    
                 total_weights += weight
 
             if not (0.99 <= total_weights <= 1.01):
