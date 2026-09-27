@@ -72,6 +72,8 @@ class ADSBTransmitter:
 
         self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         self._rng = random.Random(self._seed)
+        self._np_rng = np.random.default_rng(self._seed)
+
 
         self._initial_sample_rate = sample_rate
         self._initial_tx_params_distributions = self.tx_params_dists
@@ -200,6 +202,31 @@ class ADSBTransmitter:
         if droop_factor <= 0:
             return signal
         return signal * np.linspace(1.0, 1.0 - droop_factor, len(signal))
+
+    def _apply_phase_noise(self, signal: np.ndarray, level: float, bandwidth: float,) -> np.ndarray:
+        n = signal.size
+        if n == 0 or level <= 0.0:
+            return signal
+
+        bw = min(bandwidth, 0.499 * self.sample_rate)
+        if bw <= 0.0:
+            return signal
+
+        white_freq = (
+            self._np_rng.standard_normal(n)
+            + 1j * self._np_rng.standard_normal(n)
+        )
+
+        freqs = np.fft.fftfreq(n, d=1.0 / self.sample_rate)
+        H = 1.0 / (1.0 + 1j * freqs / bw)
+
+        phase = np.fft.ifft(white_freq * H).real.astype(np.float32)
+
+        std = phase.std()
+        if std > 0.0:
+            phase = phase / std * level
+
+        return signal * np.exp(1j * phase).astype(np.complex64)
 
     def encode(self, msg: int) -> tuple[np.ndarray, dict[TXParams, float]]:
         """
