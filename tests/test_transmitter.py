@@ -9,12 +9,6 @@ class TestTXParams:
     def test_has_amplitude(self):
         assert TXParams.AMPLITUDE.value == "amplitude"
 
-    def test_has_rise_time(self):
-        assert TXParams.RISE_TIME.value == "rise_time"
-
-    def test_has_fall_time(self):
-        assert TXParams.FALL_TIME.value == "fall_time"
-
     def test_has_amplitude_droop(self):
         assert TXParams.AMPLITUDE_DROOP.value == "amplitude_droop"
 
@@ -45,16 +39,6 @@ class TestADSBTransmitterInit:
                 [0.05, 0.25, 0.5],
                 [0.25, 0.65, 0.3],
                 [0.65, 1.00, 0.2]
-            ],
-            TXParams.RISE_TIME: [
-                [0.05, 0.06, 0.2],
-                [0.06, 0.08, 0.6],
-                [0.08, 0.10, 0.2]
-            ],
-            TXParams.FALL_TIME: [
-                [0.05, 0.08, 0.2],
-                [0.08, 0.14, 0.6],
-                [0.14, 0.20, 0.2]
             ],
             TXParams.AMPLITUDE_DROOP: [
                 [0.00, 0.02, 0.5],
@@ -218,6 +202,126 @@ class TestSampleTxParams:
         for _ in range(100):
             result = enc._sample_tx_params()
             assert 0.75 <= result[TXParams.AMPLITUDE] <= 0.80
+
+
+class TestApplyAmplitudeDroop:
+    def setup_method(self):
+        self.tx = ADSBTransmitter(seed=42)
+
+    def test_returns_ndarray(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.1)
+        assert isinstance(result, np.ndarray)
+
+    def test_returns_complex_dtype(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.1)
+        assert np.iscomplexobj(result)
+
+    def test_preserves_shape(self):
+        signal = np.ones(64, dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.1)
+        assert result.shape == signal.shape
+
+    def test_zero_droop_preserves_shape(self):
+        signal = np.ones(64, dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.0)
+        assert result.shape == signal.shape
+
+    def test_zero_droop_returns_unchanged_signal(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.0)
+        np.testing.assert_array_equal(result, signal)
+
+    def test_negative_droop_returns_unchanged_signal(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, -0.5)
+        np.testing.assert_array_equal(result, signal)
+
+    def test_first_sample_is_unchanged(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.5)
+        assert result[0] == pytest.approx(signal[0])
+
+    def test_last_sample_scaled_by_one_minus_droop(self):
+        signal = np.ones(10, dtype=np.complex128)
+        droop = 0.25
+        result = self.tx._apply_amplitude_droop(signal, droop)
+        assert result[-1] == pytest.approx(signal[-1] * (1.0 - droop))
+
+    def test_matches_linear_ramp(self):
+        signal = np.ones(10, dtype=np.complex128)
+        droop = 0.5
+        result = self.tx._apply_amplitude_droop(signal, droop)
+        expected = signal * np.linspace(1.0, 1.0 - droop, 10)
+        np.testing.assert_allclose(result, expected)
+
+    def test_known_values(self):
+        signal = np.array([1.0, 1.0, 1.0, 1.0], dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.6)
+        expected = np.array([1.0, 0.8, 0.6, 0.4], dtype=np.complex128)
+        np.testing.assert_allclose(result, expected)
+
+    def test_amplitude_decreases_monotonically(self):
+        signal = np.ones(32, dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.1)
+        assert np.all(np.diff(result.real) <= 0)
+
+    def test_full_droop_zeroes_last_sample(self):
+        signal = np.ones(10, dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 1.0)
+        assert result[-1] == pytest.approx(0.0)
+
+    def test_does_not_mutate_input(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex128)
+        original = signal.copy()
+        self.tx._apply_amplitude_droop(signal, 0.5)
+        np.testing.assert_array_equal(signal, original)
+
+    def test_zero_samples_stay_zero(self):
+        signal = np.zeros(10, dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.5)
+        np.testing.assert_allclose(result, signal)
+
+    def test_scales_magnitude_proportionally(self):
+        signal = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.complex128)
+        droop = 0.5
+        result = self.tx._apply_amplitude_droop(signal, droop)
+        ratio = result / signal
+        expected = np.linspace(1.0, 1.0 - droop, 4)
+        np.testing.assert_allclose(ratio, expected)
+
+    def test_preserves_imaginary_part_sign(self):
+        signal = np.array([1.0 + 2.0j, 1.0 - 2.0j], dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.5)
+        assert np.all(np.sign(result.imag) == np.sign(signal.imag))
+
+    def test_larger_droop_gives_more_attenuation(self):
+        signal = np.ones(16, dtype=np.complex128)
+        small = self.tx._apply_amplitude_droop(signal, 0.1)
+        large = self.tx._apply_amplitude_droop(signal, 0.5)
+        assert large[-1].real < small[-1].real
+
+    def test_works_with_real_dtype_input(self):
+        signal = np.ones(10, dtype=np.float64)
+        result = self.tx._apply_amplitude_droop(signal, 0.5)
+        assert result.dtype == np.float64
+        np.testing.assert_allclose(result, np.linspace(1.0, 0.5, 10))
+
+    def test_works_with_empty_signal(self):
+        signal = np.array([], dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.5)
+        assert result.shape == (0,)
+
+    def test_single_sample_signal(self):
+        signal = np.array([2.0], dtype=np.complex128)
+        result = self.tx._apply_amplitude_droop(signal, 0.5)
+        assert result[0] == pytest.approx(2.0)
+
+    def test_real_encode_signal_length(self):
+        iq, params = self.tx.encode(0)
+        drooped = self.tx._apply_amplitude_droop(iq, params[TXParams.AMPLITUDE_DROOP])
+        assert drooped.shape == iq.shape
 
 
 class TestEncode:
@@ -420,8 +524,6 @@ class TestConfigure:
     def test_updates_tx_params(self):
         new_params = {
             TXParams.AMPLITUDE: [[0.5, 0.5, 1.0]],
-            TXParams.RISE_TIME: [[0.5, 0.5, 1.0]],
-            TXParams.FALL_TIME: [[0.5, 0.5, 1.0]],
             TXParams.AMPLITUDE_DROOP: [[0.5, 0.5, 1.0]],
             TXParams.PHASE_NOISE_LEVEL: [[0.5, 0.5, 1.0]],
             TXParams.PHASE_NOISE_BANDWIDTH: [[0.5, 0.5, 1.0]],
@@ -488,7 +590,7 @@ class TestGetMissingKeys:
         enc = ADSBTransmitter(tx_params_distributions=partial, seed=42)
         missing = enc._get_missing_keys()
         assert TXParams.AMPLITUDE not in missing
-        assert len(missing) == 5
+        assert len(missing) == 3
 
     def test_empty_dict_falls_back_to_defaults(self):
         enc = ADSBTransmitter(tx_params_distributions={}, seed=42)
