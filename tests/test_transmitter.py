@@ -324,6 +324,137 @@ class TestApplyAmplitudeDroop:
         assert drooped.shape == iq.shape
 
 
+class TestApplyPhaseNoise:
+    def setup_method(self):
+        self.tx = ADSBTransmitter(seed=42)
+        self.signal = np.ones(240, dtype=np.complex64)
+
+    def test_returns_ndarray(self):
+        result = self.tx._apply_phase_noise(self.signal, 0.05, 1e4)
+        assert isinstance(result, np.ndarray)
+
+    def test_returns_complex_dtype(self):
+        result = self.tx._apply_phase_noise(self.signal, 0.05, 1e4)
+        assert np.iscomplexobj(result)
+
+    def test_preserves_shape(self):
+        result = self.tx._apply_phase_noise(self.signal, 0.05, 1e4)
+        assert result.shape == self.signal.shape
+
+    def test_preserves_magnitude(self):
+        result = self.tx._apply_phase_noise(self.signal, 0.5, 1e4)
+        np.testing.assert_allclose(np.abs(result), np.abs(self.signal), rtol=1e-5)
+
+    def test_preserves_magnitude_for_complex_signal(self):
+        signal = (np.arange(240) + 1j * np.arange(240)[::-1]).astype(np.complex64)
+        result = self.tx._apply_phase_noise(signal, 0.2, 1e4)
+        np.testing.assert_allclose(np.abs(result), np.abs(signal), rtol=1e-5)
+
+    def test_changes_phase(self):
+        result = self.tx._apply_phase_noise(self.signal, 0.5, 1e4)
+        assert not np.allclose(result, self.signal)
+
+    def test_zero_level_returns_unchanged_signal(self):
+        result = self.tx._apply_phase_noise(self.signal, 0.0, 1e4)
+        np.testing.assert_array_equal(result, self.signal)
+
+    def test_negative_level_returns_unchanged_signal(self):
+        result = self.tx._apply_phase_noise(self.signal, -0.1, 1e4)
+        np.testing.assert_array_equal(result, self.signal)
+
+    def test_zero_bandwidth_returns_unchanged_signal(self):
+        result = self.tx._apply_phase_noise(self.signal, 0.05, 0.0)
+        np.testing.assert_array_equal(result, self.signal)
+
+    def test_negative_bandwidth_returns_unchanged_signal(self):
+        result = self.tx._apply_phase_noise(self.signal, 0.05, -1e4)
+        np.testing.assert_array_equal(result, self.signal)
+
+    def test_works_with_empty_signal(self):
+        signal = np.array([], dtype=np.complex64)
+        result = self.tx._apply_phase_noise(signal, 0.05, 1e4)
+        assert result.shape == (0,)
+
+    def test_phase_std_matches_level(self):
+        level = 0.05
+        result = self.tx._apply_phase_noise(self.signal, level, 1e4)
+        phase = np.angle(result / self.signal)
+        assert np.std(phase) == pytest.approx(level, rel=1e-3)
+
+    def test_larger_level_gives_more_phase_deviation(self):
+        small = self.tx._apply_phase_noise(self.signal, 0.01, 1e4)
+        large = self.tx._apply_phase_noise(self.signal, 0.2, 1e4)
+        p_small = np.angle(small / self.signal)
+        p_large = np.angle(large / self.signal)
+        assert np.std(p_large) > np.std(p_small)
+
+    def test_bandwidth_above_nyquist_is_clamped(self):
+        above = ADSBTransmitter(seed=1)._apply_phase_noise(self.signal, 0.05, 1e9)
+        clamped = ADSBTransmitter(seed=1)._apply_phase_noise(
+            self.signal, 0.05, 0.499 * self.tx.sample_rate
+        )
+        np.testing.assert_array_equal(above, clamped)
+
+    def test_larger_bandwidth_is_less_smooth(self):
+        low = ADSBTransmitter(seed=7)._apply_phase_noise(self.signal, 0.05, 100.0)
+        high = ADSBTransmitter(seed=7)._apply_phase_noise(self.signal, 0.05, 1e5)
+        assert np.std(np.diff(np.angle(low))) < np.std(np.diff(np.angle(high)))
+
+    def test_does_not_mutate_input(self):
+        signal = np.array([1.0 + 2.0j, -3.0 + 4.0j], dtype=np.complex64)
+        original = signal.copy()
+        self.tx._apply_phase_noise(signal, 0.5, 1e4)
+        np.testing.assert_array_equal(signal, original)
+
+    def test_zero_samples_stay_zero(self):
+        signal = np.zeros(240, dtype=np.complex64)
+        result = self.tx._apply_phase_noise(signal, 0.5, 1e4)
+        np.testing.assert_allclose(result, signal)
+
+    def test_reproducible_with_same_seed(self):
+        a = ADSBTransmitter(seed=99)._apply_phase_noise(self.signal, 0.05, 1e4)
+        b = ADSBTransmitter(seed=99)._apply_phase_noise(self.signal, 0.05, 1e4)
+        np.testing.assert_array_equal(a, b)
+
+    def test_different_seeds_different_result(self):
+        a = ADSBTransmitter(seed=1)._apply_phase_noise(self.signal, 0.05, 1e4)
+        b = ADSBTransmitter(seed=2)._apply_phase_noise(self.signal, 0.05, 1e4)
+        assert not np.array_equal(a, b)
+
+    def test_repeated_calls_consume_rng(self):
+        first = self.tx._apply_phase_noise(self.signal, 0.05, 1e4)
+        second = self.tx._apply_phase_noise(self.signal, 0.05, 1e4)
+        assert not np.array_equal(first, second)
+
+    def test_works_with_real_dtype_input(self):
+        signal = np.ones(240, dtype=np.float64)
+        result = self.tx._apply_phase_noise(signal, 0.05, 1e4)
+        assert np.iscomplexobj(result)
+        np.testing.assert_allclose(np.abs(result), np.ones(240), rtol=1e-5)
+
+    def test_output_dtype_follows_input_dtype(self):
+        result64 = self.tx._apply_phase_noise(self.signal.astype(np.complex64), 0.05, 1e4)
+        result128 = self.tx._apply_phase_noise(self.signal.astype(np.complex128), 0.05, 1e4)
+        assert result64.dtype == np.complex64
+        assert result128.dtype == np.complex128
+
+    def test_works_with_single_sample(self):
+        signal = np.array([1.0 + 0.0j], dtype=np.complex64)
+        result = self.tx._apply_phase_noise(signal, 0.05, 1e4)
+        assert result.shape == (1,)
+        np.testing.assert_allclose(np.abs(result), np.ones(1), rtol=1e-5)
+
+    def test_works_with_real_encode_output(self):
+        iq, params = self.tx.encode(0)
+        result = self.tx._apply_phase_noise(iq, params[TXParams.PHASE_NOISE_LEVEL], 1e4)
+        assert result.shape == iq.shape
+        np.testing.assert_allclose(np.abs(result), np.abs(iq), rtol=1e-5)
+
+    def test_high_level_still_preserves_magnitude(self):
+        result = self.tx._apply_phase_noise(self.signal, 2.0, 1e4)
+        np.testing.assert_allclose(np.abs(result), np.abs(self.signal), rtol=1e-5)
+
+
 class TestEncode:
     def setup_method(self):
         self.enc = ADSBTransmitter(seed=42)
