@@ -56,7 +56,7 @@ class ADSBGenerator():
         self._initial_sample_rate = sample_rate
 
         self.builder = ADSBMessage(message_type_probs, self._seed)
-        self.encoder = ADSBTransmitter(sample_rate, tx_params_distributions, self._seed)
+        self.transmitter = ADSBTransmitter(sample_rate, tx_params_distributions, self._seed)
         self.channel = ADSBChannel(sample_rate, channel_params_distributions, self._seed)
 
         self._buffer: list[ADSBSample] = []
@@ -71,7 +71,7 @@ class ADSBGenerator():
                  channel_params_distributions: dict[ChannelParams, list[list[float]]] | None = None, sample_rate: float  | None = None, seed: int | None = None, update_initial: bool = False) -> None:
         """Update ADSBMessage, ADSBTransmitter, and ADSBChannel configurations."""
         self.builder.configure(message_type_probs, seed, update_initial)
-        self.encoder.configure(sample_rate, tx_params_distributions, seed, update_initial)
+        self.transmitter.configure(sample_rate, tx_params_distributions, seed, update_initial)
         self.channel.configure(sample_rate, channel_params_distributions, seed, update_initial)
         self.sample_rate = sample_rate
         self._initial_sample_rate = sample_rate if update_initial else self._initial_sample_rate
@@ -85,7 +85,7 @@ class ADSBGenerator():
             tx_values: Required when policy is CONSTANTS. Maps each TXParams key to its constant value.
             channel_values: Required when policy is CONSTANTS. Maps each ChannelParams key to its constant value.
         """
-        self.encoder.fill_missing(policy, tx_values)
+        self.transmitter.fill_missing(policy, tx_values)
         self.channel.fill_missing(policy, channel_values)
 
     def generate(self, n: int = 1) -> list[ADSBSample] | None:
@@ -97,7 +97,7 @@ class ADSBGenerator():
         for _ in range(n):
             message, message_type = self.builder.build()
 
-            clean_signal, transmitted_signal, tx_params = self.encoder.transmit(message)
+            clean_signal, transmitted_signal, tx_params = self.transmitter.transmit(message)
 
             channel_signal, channel_params = self.channel.apply(transmitted_signal)
 
@@ -261,13 +261,13 @@ class ADSBGenerator():
     def reset(self) -> None:
         self.sample_rate = self._initial_sample_rate
         self.builder.reset()
-        self.encoder.reset()
+        self.transmitter.reset()
         self.channel.reset()
 
     def clone(self, seed: int | None = None):
         return ADSBGenerator(
             message_type_probs=self.builder.message_type_probs,
-            tx_params_distributions=self.encoder.tx_params_dists,
+            tx_params_distributions=self.transmitter.tx_params_dists,
             channel_params_distributions=self.channel.channel_params_dists,
             sample_rate=self.sample_rate,
             seed=seed if seed is not None else self._seed,

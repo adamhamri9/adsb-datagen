@@ -103,7 +103,7 @@ class TestADSBGeneratorInit:
 
     def test_creates_encoder(self):
         gen = ADSBGenerator(seed=42)
-        assert gen.encoder is not None
+        assert gen.transmitter is not None
 
     def test_creates_channel(self):
         gen = ADSBGenerator(seed=42)
@@ -124,11 +124,11 @@ class TestADSBGeneratorInit:
 
     def test_subcomponents_share_seed(self):
         gen = ADSBGenerator(seed=42)
-        assert gen.builder._seed == gen.encoder._seed == gen.channel._seed
+        assert gen.builder._seed == gen.transmitter._seed == gen.channel._seed
 
     def test_custom_sample_rate_passed_to_encoder(self):
         gen = ADSBGenerator(sample_rate=4e6, seed=42)
-        assert gen.encoder.sample_rate == 4e6
+        assert gen.transmitter.sample_rate == 4e6
 
     def test_custom_sample_rate_passed_to_channel(self):
         gen = ADSBGenerator(sample_rate=4e6, seed=42)
