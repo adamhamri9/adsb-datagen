@@ -1,11 +1,8 @@
-import json
-import csv
 import numpy as np
 import pytest
-from pathlib import Path
-
-from src.adsb_generator.generator import ADSBGenerator, ADSBSample
-from src.adsb_generator.types import MessageType, TXParams, ChannelParams
+import csv
+import json
+from src.adsb_generator.generator import ADSBSample, ADSBGenerator
 
 
 class TestSampleToDict:
