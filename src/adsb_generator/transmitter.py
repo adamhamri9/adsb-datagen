@@ -165,9 +165,12 @@ class ADSBTransmitter:
                             f"Amplitude droop must be in range [0.0, 1.0]. "
                             f"Got range [{min_val}, {max_val}] for key '{tx_param}'"
                         )
-                    if min_val > max_val:
+                    
+                if tx_param == TXParams.PHASE_NOISE_BANDWIDTH:
+                    if not 0.0 <= min_val or not 0.0 <= max_val:
                         raise ValueError(
-                            f"Invalid amplitude droop range: {min_val} > {max_val}"
+                            f"Phase noise bandwidth must be a positive number. "
+                            f"Got range [{min_val}, {max_val}] for key '{tx_param}'"
                         )
                     
                 total_weights += weight
