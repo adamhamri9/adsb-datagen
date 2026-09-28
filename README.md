@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10-3.13](https://img.shields.io/badge/Python-3.10--3.13-3776AB.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.2.2-blue.svg)](https://github.com/adamhamri9/adsb-datagen)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/adamhamri9/adsb-datagen)
 
 **Synthetic ADS-B baseband signal generator with configurable RF channel simulation.**
 
