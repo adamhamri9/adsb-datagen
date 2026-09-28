@@ -318,10 +318,11 @@ class TestApplyAmplitudeDroop:
         result = self.tx._apply_amplitude_droop(signal, 0.5)
         assert result[0] == pytest.approx(2.0)
 
-    def test_real_encode_signal_length(self):
-        iq, params = self.tx.encode(0)
-        drooped = self.tx._apply_amplitude_droop(iq, params[TXParams.AMPLITUDE_DROOP])
-        assert drooped.shape == iq.shape
+    def test_real_transmit_signal_length(self):
+        clean, transmitted, params = self.tx.transmit(0)
+        assert transmitted.shape == clean.shape
+        drooped = self.tx._apply_amplitude_droop(clean, params[TXParams.AMPLITUDE_DROOP])
+        assert drooped.shape == clean.shape
 
 
 class TestApplyPhaseNoise:
@@ -444,73 +445,77 @@ class TestApplyPhaseNoise:
         assert result.shape == (1,)
         np.testing.assert_allclose(np.abs(result), np.ones(1), rtol=1e-5)
 
-    def test_works_with_real_encode_output(self):
-        iq, params = self.tx.encode(0)
-        result = self.tx._apply_phase_noise(iq, params[TXParams.PHASE_NOISE_LEVEL], 1e4)
-        assert result.shape == iq.shape
-        np.testing.assert_allclose(np.abs(result), np.abs(iq), rtol=1e-5)
+    def test_works_with_real_transmit_output(self):
+        clean, _, params = self.tx.transmit(0)
+        result = self.tx._apply_phase_noise(clean, params[TXParams.PHASE_NOISE_LEVEL], 1e4)
+        assert result.shape == clean.shape
+        np.testing.assert_allclose(np.abs(result), np.abs(clean), rtol=1e-5)
 
     def test_high_level_still_preserves_magnitude(self):
         result = self.tx._apply_phase_noise(self.signal, 2.0, 1e4)
         np.testing.assert_allclose(np.abs(result), np.abs(self.signal), rtol=1e-5)
 
 
-class TestEncode:
+class TestTransmit:
     def setup_method(self):
         self.enc = ADSBTransmitter(seed=42)
 
     def test_returns_tuple(self):
-        result = self.enc.encode(0)
+        result = self.enc.transmit(0)
         assert isinstance(result, tuple)
 
-    def test_tuple_has_two_elements(self):
-        result = self.enc.encode(0)
-        assert len(result) == 2
+    def test_tuple_has_three_elements(self):
+        result = self.enc.transmit(0)
+        assert len(result) == 3
 
     def test_first_element_is_ndarray(self):
-        iq, _ = self.enc.encode(0)
-        assert isinstance(iq, np.ndarray)
+        clean, _, _ = self.enc.transmit(0)
+        assert isinstance(clean, np.ndarray)
 
-    def test_second_element_is_dict(self):
-        _, params = self.enc.encode(0)
+    def test_second_element_is_ndarray(self):
+        _, transmitted, _ = self.enc.transmit(0)
+        assert isinstance(transmitted, np.ndarray)
+
+    def test_third_element_is_dict(self):
+        _, _, params = self.enc.transmit(0)
         assert isinstance(params, dict)
 
     def test_iq_dtype_is_complex64(self):
-        iq, _ = self.enc.encode(0)
-        assert iq.dtype == np.complex64
+        clean, _, _ = self.enc.transmit(0)
+        assert clean.dtype == np.complex64
 
     def test_default_sample_rate_length(self):
-        iq, _ = self.enc.encode(0)
-        assert len(iq) == 240
+        clean, _, _ = self.enc.transmit(0)
+        assert len(clean) == 240
 
     def test_custom_sample_rate_length(self):
         enc = ADSBTransmitter(sample_rate=1e6, seed=42)
-        iq, _ = enc.encode(0)
-        assert len(iq) == 120
+        clean, _, _ = enc.transmit(0)
+        assert len(clean) == 120
 
     def test_imaginary_part_is_zero(self):
-        iq, _ = self.enc.encode(0)
-        assert np.all(iq.imag == 0.0)
+        clean, _, _ = self.enc.transmit(0)
+        assert np.all(clean.imag == 0.0)
 
     def test_signal_values_are_zero_or_amplitude(self):
-        iq, params = self.enc.encode(0)
-        real = iq.real
+        clean, _, params = self.enc.transmit(0)
+        real = clean.real
         amps = np.unique(real)
         for a in amps:
             assert a == 0.0 or a == pytest.approx(params[TXParams.AMPLITUDE])
 
     def test_returned_params_contains_amplitude(self):
-        _, params = self.enc.encode(0)
+        _, _, params = self.enc.transmit(0)
         assert TXParams.AMPLITUDE in params
 
     def test_returned_amplitude_is_float(self):
-        _, params = self.enc.encode(0)
+        _, _, params = self.enc.transmit(0)
         assert isinstance(params[TXParams.AMPLITUDE], float)
 
     def test_preamble_pulses_present_at_expected_positions(self):
-        iq, params = self.enc.encode(0)
+        clean, _, params = self.enc.transmit(0)
         amps = params[TXParams.AMPLITUDE]
-        real = iq.real
+        real = clean.real
 
         spus = self.enc.sample_rate / 1e6
         expected_starts = [0.0, 1.0, 3.5, 4.5]
@@ -519,8 +524,8 @@ class TestEncode:
             assert real[idx] == pytest.approx(amps), f"preamble pulse missing at {start_us}us (idx {idx})"
 
     def test_preamble_gaps_are_zero(self):
-        iq, _ = self.enc.encode(0)
-        real = iq.real
+        clean, _, _ = self.enc.transmit(0)
+        real = clean.real
 
         spus = self.enc.sample_rate / 1e6
         gap_regions = [(0.5, 1.0), (1.5, 3.5), (4.0, 4.5)]
@@ -532,8 +537,8 @@ class TestEncode:
     def test_all_zeros_message_no_first_half_pulses(self):
         for enc_seed in [42, 7, 99]:
             enc = ADSBTransmitter(seed=enc_seed)
-            iq, params = enc.encode(0)
-            real = iq.real
+            clean, _, params = enc.transmit(0)
+            real = clean.real
             spus = enc.sample_rate / 1e6
             for bit_idx in range(112):
                 bit_start = 8.0 + bit_idx
@@ -546,8 +551,8 @@ class TestEncode:
         msg = (1 << 112) - 1
         for enc_seed in [42, 7, 99]:
             enc = ADSBTransmitter(seed=enc_seed)
-            iq, params = enc.encode(msg)
-            real = iq.real
+            clean, _, params = enc.transmit(msg)
+            real = clean.real
             spus = enc.sample_rate / 1e6
             amp = params[TXParams.AMPLITUDE]
             for bit_idx in range(112):
@@ -561,8 +566,8 @@ class TestEncode:
     def test_second_half_zeros_when_bit_is_one(self):
         msg = (1 << 112) - 1
         enc = ADSBTransmitter(seed=42)
-        iq, _ = enc.encode(msg)
-        real = iq.real
+        clean, _, _ = enc.transmit(msg)
+        real = clean.real
         spus = enc.sample_rate / 1e6
         for bit_idx in range(112):
             bit_start = 8.0 + bit_idx
@@ -574,8 +579,8 @@ class TestEncode:
     def test_single_bit_set_at_lsb(self):
         msg = 1
         enc = ADSBTransmitter(seed=42)
-        iq, params = enc.encode(msg)
-        real = iq.real
+        clean, _, params = enc.transmit(msg)
+        real = clean.real
         spus = enc.sample_rate / 1e6
         amp = params[TXParams.AMPLITUDE]
 
@@ -588,8 +593,8 @@ class TestEncode:
     def test_single_bit_set_at_msb(self):
         msg = 1 << 111
         enc = ADSBTransmitter(seed=42)
-        iq, params = enc.encode(msg)
-        real = iq.real
+        clean, _, params = enc.transmit(msg)
+        real = clean.real
         spus = enc.sample_rate / 1e6
         amp = params[TXParams.AMPLITUDE]
 
@@ -601,41 +606,41 @@ class TestEncode:
     def test_reproducible_with_same_seed_and_msg(self):
         enc1 = ADSBTransmitter(seed=123)
         enc2 = ADSBTransmitter(seed=123)
-        iq1, params1 = enc1.encode(0xDEADBEEF)
-        iq2, params2 = enc2.encode(0xDEADBEEF)
-        assert np.array_equal(iq1, iq2)
+        clean1, _, params1 = enc1.transmit(0xDEADBEEF)
+        clean2, _, params2 = enc2.transmit(0xDEADBEEF)
+        assert np.array_equal(clean1, clean2)
         assert params1 == params2
 
     def test_different_seeds_different_amplitude(self):
         enc1 = ADSBTransmitter(seed=1)
         enc2 = ADSBTransmitter(seed=2)
-        _, p1 = enc1.encode(0)
-        _, p2 = enc2.encode(0)
+        _, _, p1 = enc1.transmit(0)
+        _, _, p2 = enc2.transmit(0)
         assert p1[TXParams.AMPLITUDE] != p2[TXParams.AMPLITUDE]
 
     def test_different_messages_produce_different_signals(self):
-        iq1, _ = self.enc.encode(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAA)
-        iq2, _ = self.enc.encode(0x5555555555555555555555555555)
-        assert not np.array_equal(iq1, iq2)
+        clean1, _, _ = self.enc.transmit(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAA)
+        clean2, _, _ = self.enc.transmit(0x5555555555555555555555555555)
+        assert not np.array_equal(clean1, clean2)
 
     def test_signal_length_scales_with_sample_rate(self):
         for rate in [1e6, 2e6, 4e6]:
             enc = ADSBTransmitter(sample_rate=rate, seed=42)
-            iq, _ = enc.encode(0)
+            clean, _, _ = enc.transmit(0)
             expected = int(round(120.0 * rate / 1e6))
-            assert len(iq) == expected
+            assert len(clean) == expected
 
     def test_signal_non_negative_real_part(self):
-        iq, _ = self.enc.encode(0)
-        assert np.all(iq.real >= 0.0)
+        clean, _, _ = self.enc.transmit(0)
+        assert np.all(clean.real >= 0.0)
 
     def test_known_signal_sum(self):
         custom = {TXParams.AMPLITUDE: [[1.0, 1.0, 1.0]]}
         enc = ADSBTransmitter(tx_params_distributions=custom, seed=0)
-        iq, params = enc.encode(0)
+        clean, _, params = enc.transmit(0)
         assert params[TXParams.AMPLITUDE] == 1.0
 
-        nonzero = np.count_nonzero(iq.real)
+        nonzero = np.count_nonzero(clean.real)
         preamble_pulses = 4
         data_pulses = 112
         assert nonzero == preamble_pulses + data_pulses
@@ -705,11 +710,11 @@ class TestConfigure:
         with pytest.raises(ValueError, match="Invalid tx param key"):
             self.enc.configure(tx_params_distributions={"bad_key": [[0.0, 1.0, 1.0]]})
 
-    def test_sample_rate_affects_encode(self):
+    def test_sample_rate_affects_transmit(self):
         self.enc.configure(sample_rate=4e6)
-        iq, _ = self.enc.encode(0)
+        clean, _, _ = self.enc.transmit(0)
         expected = int(round(120.0 * 4e6 / 1e6))
-        assert len(iq) == expected
+        assert len(clean) == expected
 
 class TestGetMissingKeys:
     def test_all_keys_present(self):

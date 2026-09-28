@@ -77,10 +77,16 @@ class TestSampleToDict:
             assert enum_key.value in result["channel_params"]
             assert result["channel_params"][enum_key.value] == val
 
-    def test_dict_has_six_keys(self):
+    def test_dict_has_seven_keys(self):
         sample = next(iter(self.gen))
         result = self.gen._sample_to_dict(sample)
-        assert len(result) == 6
+        assert len(result) == 7
+
+    def test_has_transmitted_signal_key(self):
+        sample = next(iter(self.gen))
+        result = self.gen._sample_to_dict(sample)
+        assert "transmitted_signal" in result
+        np.testing.assert_array_equal(result["transmitted_signal"], sample.transmitted_signal)
 
 
 class TestExportValidation:
