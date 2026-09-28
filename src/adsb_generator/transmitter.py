@@ -231,13 +231,14 @@ class ADSBTransmitter:
 
         return signal * np.exp(1j * phase).astype(np.complex64)
 
-    def encode(self, msg: int) -> tuple[np.ndarray, dict[TXParams, float]]:
+    def transmit(self, msg: int) -> tuple[np.ndarray, np.ndarray, dict[TXParams, float]]:
         """
-        Encodes a 112-bit ADS-B message into a complex baseband I/Q signal.
+        Encodes a 112-bit ADS-B message and applies transmission impairments.
 
-        This method samples transmission parameters from configured distributions and 
-        generates a 120 μs signal containing the preamble and 112 data bits encoded 
-        using PPM at 1 Mbps.
+        This method samples transmission parameters from configured distributions and
+        generates a 120 μs signal containing the preamble and 112 data bits encoded
+        using PPM at 1 Mbps. The ideal encoded signal is then passed through the
+        amplitude droop and phase noise impairments to produce the transmitted signal.
 
         The timing follows the ADS-B standard:
             - Preamble: 8.0 μs with pulses at specific positions
@@ -249,8 +250,9 @@ class ADSBTransmitter:
 
         Returns:
             A tuple containing:
-                - np.ndarray: Complex I/Q samples of the baseband signal (dtype=np.complex64)
-                - dict[TXParams, float]: The transmission parameters used for this encode operation
+                - np.ndarray: Ideal complex I/Q signal before transmission impairments (dtype=np.complex64)
+                - np.ndarray: Complex I/Q signal after amplitude droop and phase noise (dtype=np.complex64)
+                - dict[TXParams, float]: The transmission parameters used for this transmit operation
         """
         params = self._sample_tx_params()
         amplitude = params[TXParams.AMPLITUDE]
@@ -282,7 +284,10 @@ class ADSBTransmitter:
 
         iq_samples = signal.astype(np.complex64)
 
-        return iq_samples, params
+        transmitted_signal = self._apply_amplitude_droop(iq_samples, params[TXParams.AMPLITUDE_DROOP])
+        transmitted_signal = self._apply_phase_noise(transmitted_signal, params[TXParams.PHASE_NOISE_LEVEL], params[TXParams.PHASE_NOISE_BANDWIDTH])
+        
+        return iq_samples, transmitted_signal, params
 
     def reset(self) -> None:
         """Reset class paramters to inital values"""

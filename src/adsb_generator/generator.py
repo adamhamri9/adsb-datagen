@@ -13,6 +13,7 @@ class ADSBSample:
     message_type: MessageType
 
     clean_signal: np.ndarray
+    transmitted_signal: np.ndarray
     tx_params: dict[TXParams, float]
 
     channel_signal: np.ndarray
@@ -96,14 +97,15 @@ class ADSBGenerator():
         for _ in range(n):
             message, message_type = self.builder.build()
 
-            clean_signal, tx_params = self.encoder.encode(message)
+            clean_signal, transmitted_signal, tx_params = self.encoder.transmit(message)
 
-            channel_signal, channel_params = self.channel.apply(clean_signal)
+            channel_signal, channel_params = self.channel.apply(transmitted_signal)
 
             sample = ADSBSample(
                 message=message,
                 message_type=message_type,
                 clean_signal=clean_signal,
+                transmitted_signal=transmitted_signal,
                 tx_params=tx_params,
                 channel_signal=channel_signal,
                 channel_params=channel_params,
@@ -181,7 +183,7 @@ class ADSBGenerator():
                 for sample_key, sample in data_dict.items():
                     row = (
                         [sample_key]
-                        + [v for k, v in sample.items() if k not in ("clean_signal", "channel_signal", "tx_params", "channel_params")]
+                        + [v for k, v in sample.items() if k not in ("clean_signal", "transmitted_signal", "channel_signal", "tx_params", "channel_params")]
                         + list(sample["tx_params"].values())
                         + list(sample["channel_params"].values())
                     )
@@ -200,7 +202,7 @@ class ADSBGenerator():
                         {
                             sample_key: {
                                 k: v for k, v in sample.items() 
-                                if k not in ("clean_signal", "channel_signal")
+                                if k not in ("clean_signal", "transmitted_signal", "channel_signal")
                             }
                         }, 
                         f, 
@@ -216,7 +218,7 @@ class ADSBGenerator():
                 for sample_key, sample in data_dict.items():
                     filtered_sample = {
                         k: v for k, v in sample.items() 
-                        if k not in ("clean_signal", "channel_signal")
+                        if k not in ("clean_signal", "transmitted_signal", "channel_signal")
                     }
                     f.write(json.dumps({sample_key: filtered_sample}, separators=(',', ':')) + '\n')
 
@@ -234,7 +236,8 @@ class ADSBGenerator():
         return {
             "message": sample.message,
             "message_type": sample.message_type.value,
-            "clean_signal": sample.clean_signal,   
+            "clean_signal": sample.clean_signal,
+            "transmitted_signal": sample.transmitted_signal,   
             "channel_signal": sample.channel_signal, 
             "tx_params": {key.value: val for key, val in sample.tx_params.items()},
             "channel_params": {key.value: val for key, val in sample.channel_params.items()}
