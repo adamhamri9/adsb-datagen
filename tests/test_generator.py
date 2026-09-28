@@ -11,6 +11,7 @@ class TestADSBSample:
             message=123,
             message_type=MessageType.AIRBORNE_POSITION,
             clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=np.array([], dtype=np.complex64),
             tx_params={TXParams.AMPLITUDE: 1.0},
             channel_signal=np.array([], dtype=np.complex64),
             channel_params={ChannelParams.SNR_DB: 15.0},
@@ -22,6 +23,7 @@ class TestADSBSample:
             message=0,
             message_type=MessageType.AIRBORNE_VELOCITY,
             clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=np.array([], dtype=np.complex64),
             tx_params={},
             channel_signal=np.array([], dtype=np.complex64),
             channel_params={},
@@ -34,6 +36,7 @@ class TestADSBSample:
             message=0,
             message_type=MessageType.IDENTIFICATION,
             clean_signal=sig,
+            transmitted_signal=np.array([], dtype=np.complex64),
             tx_params={},
             channel_signal=np.array([], dtype=np.complex64),
             channel_params={},
@@ -46,6 +49,7 @@ class TestADSBSample:
             message=0,
             message_type=MessageType.IDENTIFICATION,
             clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=np.array([], dtype=np.complex64),
             tx_params={},
             channel_signal=sig,
             channel_params={},
@@ -58,6 +62,7 @@ class TestADSBSample:
             message=0,
             message_type=MessageType.IDENTIFICATION,
             clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=np.array([], dtype=np.complex64),
             tx_params=tx,
             channel_signal=np.array([], dtype=np.complex64),
             channel_params={},
@@ -70,11 +75,25 @@ class TestADSBSample:
             message=0,
             message_type=MessageType.IDENTIFICATION,
             clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=np.array([], dtype=np.complex64),
             tx_params={},
             channel_signal=np.array([], dtype=np.complex64),
             channel_params=ch,
         )
         assert sample.channel_params == ch
+
+    def test_has_transmitted_signal(self):
+        sig = np.ones(10, dtype=np.complex64)
+        sample = ADSBSample(
+            message=0,
+            message_type=MessageType.IDENTIFICATION,
+            clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=sig,
+            tx_params={},
+            channel_signal=np.array([], dtype=np.complex64),
+            channel_params={},
+        )
+        np.testing.assert_array_equal(sample.transmitted_signal, sig)
 
 
 class TestADSBGeneratorInit:
@@ -84,7 +103,7 @@ class TestADSBGeneratorInit:
 
     def test_creates_encoder(self):
         gen = ADSBGenerator(seed=42)
-        assert gen.encoder is not None
+        assert gen.transmitter is not None
 
     def test_creates_channel(self):
         gen = ADSBGenerator(seed=42)
@@ -105,11 +124,11 @@ class TestADSBGeneratorInit:
 
     def test_subcomponents_share_seed(self):
         gen = ADSBGenerator(seed=42)
-        assert gen.builder._seed == gen.encoder._seed == gen.channel._seed
+        assert gen.builder._seed == gen.transmitter._seed == gen.channel._seed
 
     def test_custom_sample_rate_passed_to_encoder(self):
         gen = ADSBGenerator(sample_rate=4e6, seed=42)
-        assert gen.encoder.sample_rate == 4e6
+        assert gen.transmitter.sample_rate == 4e6
 
     def test_custom_sample_rate_passed_to_channel(self):
         gen = ADSBGenerator(sample_rate=4e6, seed=42)
@@ -143,6 +162,31 @@ class TestADSBGeneratorIter:
     def test_channel_signal_is_ndarray(self):
         sample = next(iter(self.gen))
         assert isinstance(sample.channel_signal, np.ndarray)
+
+    def test_transmitted_signal_is_ndarray(self):
+        sample = next(iter(self.gen))
+        assert isinstance(sample.transmitted_signal, np.ndarray)
+
+    def test_transmitted_signal_is_complex(self):
+        sample = next(iter(self.gen))
+        assert np.iscomplexobj(sample.transmitted_signal)
+
+    def test_transmitted_signal_non_empty(self):
+        sample = next(iter(self.gen))
+        assert len(sample.transmitted_signal) > 0
+
+    def test_all_three_signals_same_length(self):
+        sample = next(iter(self.gen))
+        assert sample.clean_signal.shape == sample.transmitted_signal.shape
+        assert sample.transmitted_signal.shape == sample.channel_signal.shape
+
+    def test_transmitted_signal_differs_from_clean(self):
+        sample = next(iter(self.gen))
+        assert not np.array_equal(sample.clean_signal, sample.transmitted_signal)
+
+    def test_channel_signal_differs_from_transmitted(self):
+        sample = next(iter(self.gen))
+        assert not np.array_equal(sample.transmitted_signal, sample.channel_signal)
 
     def test_tx_params_is_dict(self):
         sample = next(iter(self.gen))

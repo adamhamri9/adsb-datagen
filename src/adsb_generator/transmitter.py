@@ -3,7 +3,7 @@ import numpy as np
 from enum import Enum
 from .types import MissingPolicy, TXParams
 
-class ADSBEncoder:
+class ADSBTransmitter:
     """
     Converts ADS-B raw frames into baseband I/Q samples with randomized transmission parameters.
 
@@ -46,6 +46,21 @@ class ADSBEncoder:
                     [0.05, 0.25, 0.5],
                     [0.25, 0.65, 0.3],
                     [0.65, 1.00, 0.2]
+                ],
+                TXParams.AMPLITUDE_DROOP: [
+                    [0.00, 0.02, 0.5],
+                    [0.02, 0.05, 0.35],
+                    [0.05, 0.10, 0.15]
+                ],
+                TXParams.PHASE_NOISE_LEVEL: [
+                    [0.001, 0.003, 0.2],
+                    [0.003, 0.010, 0.6],
+                    [0.010, 0.020, 0.2]
+                ],
+                TXParams.PHASE_NOISE_BANDWIDTH: [
+                    [1000.0, 10000.0, 0.2],
+                    [10000.0, 100.0e3, 0.6],
+                    [100.0e3, 500.0e3, 0.2]
                 ]}
 
         self.tx_params_dists = tx_params_distributions or self.default_dists
@@ -57,6 +72,8 @@ class ADSBEncoder:
 
         self._seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         self._rng = random.Random(self._seed)
+        self._np_rng = np.random.default_rng(self._seed)
+
 
         self._initial_sample_rate = sample_rate
         self._initial_tx_params_distributions = self.tx_params_dists
@@ -141,6 +158,21 @@ class ADSBEncoder:
                     raise ValueError(
                         f"Invalid range {min_val} > {max_val} in key '{tx_param}'"
                     )
+
+                if tx_param == TXParams.AMPLITUDE_DROOP:
+                    if not (0.0 <= min_val <= 1.0) or not (0.0 <= max_val <= 1.0):
+                        raise ValueError(
+                            f"Amplitude droop must be in range [0.0, 1.0]. "
+                            f"Got range [{min_val}, {max_val}] for key '{tx_param}'"
+                        )
+                    
+                if tx_param == TXParams.PHASE_NOISE_BANDWIDTH:
+                    if not 0.0 <= min_val or not 0.0 <= max_val:
+                        raise ValueError(
+                            f"Phase noise bandwidth must be a positive number. "
+                            f"Got range [{min_val}, {max_val}] for key '{tx_param}'"
+                        )
+                    
                 total_weights += weight
 
             if not (0.99 <= total_weights <= 1.01):
@@ -169,13 +201,44 @@ class ADSBEncoder:
 
         return sampled_params
 
-    def encode(self, msg: int) -> tuple[np.ndarray, dict[TXParams, float]]:
-        """
-        Encodes a 112-bit ADS-B message into a complex baseband I/Q signal.
+    def _apply_amplitude_droop(self, signal: np.ndarray, droop_factor: float) -> np.ndarray:
+        if droop_factor <= 0:
+            return signal
+        return signal * np.linspace(1.0, 1.0 - droop_factor, len(signal))
 
-        This method samples transmission parameters from configured distributions and 
-        generates a 120 μs signal containing the preamble and 112 data bits encoded 
-        using PPM at 1 Mbps.
+    def _apply_phase_noise(self, signal: np.ndarray, level: float, bandwidth: float,) -> np.ndarray:
+        n = signal.size
+        if n == 0 or level <= 0.0:
+            return signal
+
+        bw = min(bandwidth, 0.499 * self.sample_rate)
+        if bw <= 0.0:
+            return signal
+
+        white_freq = (
+            self._np_rng.standard_normal(n)
+            + 1j * self._np_rng.standard_normal(n)
+        )
+
+        freqs = np.fft.fftfreq(n, d=1.0 / self.sample_rate)
+        H = 1.0 / (1.0 + 1j * freqs / bw)
+
+        phase = np.fft.ifft(white_freq * H).real.astype(np.float32)
+
+        std = phase.std()
+        if std > 0.0:
+            phase = phase / std * level
+
+        return signal * np.exp(1j * phase).astype(np.complex64)
+
+    def transmit(self, msg: int) -> tuple[np.ndarray, np.ndarray, dict[TXParams, float]]:
+        """
+        Encodes a 112-bit ADS-B message and applies transmission impairments.
+
+        This method samples transmission parameters from configured distributions and
+        generates a 120 μs signal containing the preamble and 112 data bits encoded
+        using PPM at 1 Mbps. The ideal encoded signal is then passed through the
+        amplitude droop and phase noise impairments to produce the transmitted signal.
 
         The timing follows the ADS-B standard:
             - Preamble: 8.0 μs with pulses at specific positions
@@ -187,8 +250,9 @@ class ADSBEncoder:
 
         Returns:
             A tuple containing:
-                - np.ndarray: Complex I/Q samples of the baseband signal (dtype=np.complex64)
-                - dict[TXParams, float]: The transmission parameters used for this encode operation
+                - np.ndarray: Ideal complex I/Q signal before transmission impairments (dtype=np.complex64)
+                - np.ndarray: Complex I/Q signal after amplitude droop and phase noise (dtype=np.complex64)
+                - dict[TXParams, float]: The transmission parameters used for this transmit operation
         """
         params = self._sample_tx_params()
         amplitude = params[TXParams.AMPLITUDE]
@@ -220,14 +284,17 @@ class ADSBEncoder:
 
         iq_samples = signal.astype(np.complex64)
 
-        return iq_samples, params
+        transmitted_signal = self._apply_amplitude_droop(iq_samples, params[TXParams.AMPLITUDE_DROOP])
+        transmitted_signal = self._apply_phase_noise(transmitted_signal, params[TXParams.PHASE_NOISE_LEVEL], params[TXParams.PHASE_NOISE_BANDWIDTH])
+        
+        return iq_samples, transmitted_signal, params
 
     def reset(self) -> None:
         """Reset class paramters to inital values"""
         self.__init__(self._initial_sample_rate, self._initial_tx_params_distributions, self._initial_seed)
 
     def clone(self, seed: int | None = None):
-        return ADSBEncoder(
+        return ADSBTransmitter(
             sample_rate=self.sample_rate,
             tx_params_distributions=self.tx_params_dists,
             seed=seed if seed is not None else self._seed,

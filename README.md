@@ -2,20 +2,21 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10-3.13](https://img.shields.io/badge/Python-3.10--3.13-3776AB.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/adamhamri9/adsb-datagen)
+[![Version](https://img.shields.io/badge/version-0.2.2-blue.svg)](https://github.com/adamhamri9/adsb-datagen)
 
 **Synthetic ADS-B baseband signal generator with configurable RF channel simulation.**
 
-`adsb-generator` produces realistic I/Q (In-phase/Quadrature) samples of clean and impaired ADS-B (Mode S Downlink Format 17) baseband signals, along with the raw 112-bit message and all applied parameters. It implements an infinite iterator that streams reproducible samples with full control over message type distributions, transmission parameters, and channel impairments.
+`adsb-generator` produces realistic I/Q (In-phase/Quadrature) samples of ADS-B (Mode S Downlink Format 17) baseband signals, along with the raw 112-bit message and all applied parameters. Each sample carries three signal stages: the ideal PPM waveform, the waveform after transmitter impairments, and the waveform after RF channel impairments. It implements an infinite iterator that streams reproducible samples with full control over message type distributions, transmission parameters, and channel impairments.
 
 ## Key Features
 
 - **End-to-end pipeline**: random message generation, PPM encoding, and RF channel simulation in a single call.
 - **Four ADS-B message types**: identification, surface position, airborne position, and airborne velocity with configurable emission probabilities.
 - **Realistic channel impairments**: Gaussian noise (both AWGN and correlated), frequency/phase offset, IQ imbalance, and DC offset, all sampled from configurable probability distributions.
+- **Transmitter impairments**: linear amplitude droop and filtered phase noise applied between encoding and the channel stage.
 - **Reproducibility**: deterministic output via a shared seed across all pipeline stages.
 - **Configurable distributions**: override any transmission or channel parameter distribution to model specific receiver conditions or hardware behavior.
-- **NumPy-native**: all signals are `np.complex64` arrays, ready for direct use with any downstream processing tool.
+- **NumPy-native**: signals are NumPy arrays, ready for direct use with any downstream processing tool. The ideal PPM signal is `np.complex64`; note that the amplitude droop stage promotes later stages to `complex128`.
 - **Export to multiple formats**: save samples as `.npz` (full signal data), `.csv`, `.json`, or `.jsonl` (metadata only).
 
 ## Requirements
@@ -37,15 +38,18 @@ from adsb_generator import ADSBGenerator
 # Create a generator with a fixed seed for reproducibility
 gen = ADSBGenerator(seed=42)
 
-# Each iteration yields an ADSBSample with the raw message,
-# clean signal, and channel-impaired signal
+# Each iteration yields an ADSBSample carrying the message and three
+# signal stages: clean (ideal PPM), transmitted (after TX impairments),
+# and channel (after RF impairments)
 for sample in gen:
-    print(f"Message type : {sample.message_type.value}")
-    print(f"Raw message  : {sample.message:#028x}")
-    print(f"Clean signal : {sample.clean_signal.shape} complex64 samples")
-    print(f"Noisy signal : {sample.channel_signal.shape} complex64 samples")
-    print(f"SNR (dB)     : {sample.channel_params['snr_db']:.1f}")
-    print(f"Amplitude    : {sample.tx_params['amplitude']:.3f}")
+    print(f"Message type   : {sample.message_type.value}")
+    print(f"Raw message    : {sample.message:#028x}")
+    print(f"Clean signal   : {sample.clean_signal.shape} {sample.clean_signal.dtype}")
+    print(f"Transmitted    : {sample.transmitted_signal.shape} {sample.transmitted_signal.dtype}")
+    print(f"Channel signal : {sample.channel_signal.shape} {sample.channel_signal.dtype}")
+    print(f"SNR (dB)       : {sample.channel_params['snr_db']:.1f}")
+    print(f"Amplitude      : {sample.tx_params['amplitude']:.3f}")
+    print(f"Amplitude droop: {sample.tx_params['amplitude_droop']:.3f}")
     break
 ```
 
@@ -110,8 +114,8 @@ from adsb_generator import ADSBGenerator
 
 gen = ADSBGenerator(seed=42)
 
-# ADSBEncoder
-gen.encoder.configure(sample_rate=4e6)
+# ADSBTransmitter
+gen.transmitter.configure(sample_rate=4e6)
 
 # ADSBChannel
 gen.channel.configure(
@@ -162,11 +166,14 @@ gen.fill_missing(MissingPolicy.RAISE)
 The same applies to transmission parameters:
 
 ```python
-from adsb_generator import ADSBEncoder, MissingPolicy, TXParams
+from adsb_generator import ADSBTransmitter, MissingPolicy, TXParams
 
-encoder = ADSBEncoder(seed=42)
-encoder.fill_missing(MissingPolicy.CONSTANTS, values={
+transmitter = ADSBTransmitter(seed=42)
+transmitter.fill_missing(MissingPolicy.CONSTANTS, values={
     TXParams.AMPLITUDE: 0.8,
+    TXParams.AMPLITUDE_DROOP: 0.05,
+    TXParams.PHASE_NOISE_LEVEL: 0.0,
+    TXParams.PHASE_NOISE_BANDWIDTH: 1e4,
 })
 ```
 
@@ -194,10 +201,12 @@ Four output formats are supported:
 
 | Format | Extension | Signal data | Description |
 |---|---|---|---|
-| NumPy | `.npz` | Included | Full archive with all sample data including I/Q signals. |
+| NumPy | `.npz` | Included | Full archive with all sample data including all three I/Q signal stages. |
 | CSV | `.csv` | Excluded | Flat table with metadata and flattened parameter columns. |
 | JSON | `.json` | Excluded | Array of sample objects with compact formatting. |
 | JSONL | `.jsonl` | Excluded | One JSON object per line, suitable for streaming ingestion. |
+
+Only the `.npz` format preserves `clean_signal`, `transmitted_signal`, and `channel_signal`. The other three formats export metadata only: the message, message type, and the flattened transmission and channel parameters.
 
 ```python
 # Save full signal data for offline processing
@@ -239,7 +248,7 @@ ADSBGenerator(
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `message_type_probs` | `dict` or `None` | Equal 25% per type | Mapping of `MessageType` to emission probabilities (must sum to 1.0). |
-| `tx_params_distributions` | `dict` or `None` | Single amplitude band | Mapping of `TXParams` to `[[min, max, weight], ...]` intervals. |
+| `tx_params_distributions` | `dict` or `None` | Built-in amplitude, droop, and phase noise bands | Mapping of `TXParams` to `[[min, max, weight], ...]` intervals. |
 | `channel_params_distributions` | `dict` or `None` | Typical ADS-B conditions | Mapping of `ChannelParams` to `[[min, max, weight], ...]` intervals. |
 | `sample_rate` | `float` | `2e6` | Sampling rate in samples per second. |
 | `seed` | `int` or `None` | Random | Seed for deterministic output across all pipeline stages. |
@@ -265,10 +274,13 @@ Dataclass returned by each iteration of `ADSBGenerator`.
 |---|---|---|
 | `message` | `int` | Complete 112-bit ADS-B message (including 24-bit CRC) as an integer. |
 | `message_type` | `MessageType` | The type of ADS-B message generated. |
-| `clean_signal` | `np.ndarray` | Complex baseband I/Q signal before channel impairments (`complex64`). |
-| `tx_params` | `dict[TXParams, float]` | Transmission parameters applied during encoding. |
-| `channel_signal` | `np.ndarray` | Complex baseband I/Q signal after channel impairments (`complex64`). |
+| `clean_signal` | `np.ndarray` | Complex baseband I/Q signal as ideal PPM, before any transmission impairment (`complex64`). |
+| `transmitted_signal` | `np.ndarray` | Complex baseband I/Q signal after transmission impairments: amplitude droop, then phase noise. |
+| `tx_params` | `dict[TXParams, float]` | Transmission parameters applied during transmission. |
+| `channel_signal` | `np.ndarray` | Complex baseband I/Q signal after channel impairments are applied to `transmitted_signal`. |
 | `channel_params` | `dict[ChannelParams, float]` | Channel parameters applied to the signal. |
+
+The three signal stages form a chain: `clean_signal` -> `transmitted_signal` -> `channel_signal`. Each stage is the input to the next, so channel impairments operate on the already-drooped and phase-noised waveform.
 
 ---
 
@@ -283,12 +295,25 @@ Dataclass returned by each iteration of `ADSBGenerator`.
 
 ---
 
-### `ADSBEncoder`
+### `TXParams`
 
-Encodes 112-bit messages into complex baseband I/Q samples using PPM per the Mode S standard.
+| Value | Description |
+|---|---|
+| `AMPLITUDE` | Transmitted signal amplitude. |
+| `AMPLITUDE_DROOP` | Fractional linear amplitude decay across the burst, in `[0.0, 1.0]`. A value of `0.1` scales the last sample to 90% of full amplitude. |
+| `PHASE_NOISE_LEVEL` | Standard deviation of the applied phase noise, in radians. |
+| `PHASE_NOISE_BANDWIDTH` | One-sided bandwidth in Hz of the first-order phase noise filter. Clamped to `0.499 * sample_rate`. |
+
+Impairments are applied in a fixed order: amplitude droop, then phase noise.
+
+---
+
+### `ADSBTransmitter`
+
+Encodes 112-bit messages into complex baseband I/Q samples using PPM per the Mode S standard, then applies transmission impairments.
 
 ```python
-ADSBEncoder(
+ADSBTransmitter(
     sample_rate: float = 2e6,
     tx_params_distributions: dict[TXParams | str, list[list[float]]] | None = None,
     seed: int | None = None,
@@ -297,7 +322,23 @@ ADSBEncoder(
 
 | Method | Returns | Description |
 |---|---|---|
-| `encode(msg: int)` | `tuple[np.ndarray, dict[TXParams, float]]` | Encodes a 112-bit message into a 120-us baseband I/Q signal. |
+| `transmit(msg: int)` | `tuple[np.ndarray, np.ndarray, dict[TXParams, float]]` | Encodes a 112-bit message into a 120-us baseband I/Q signal and returns the ideal signal, the impaired signal, and the parameters used. |
+
+`transmit()` returns:
+
+| Element | Type | Description |
+|---|---|---|
+| `[0]` | `np.ndarray` | Ideal PPM signal before transmission impairments. |
+| `[1]` | `np.ndarray` | Signal after amplitude droop and phase noise. |
+| `[2]` | `dict[TXParams, float]` | Transmission parameters used for this call. |
+
+```python
+from adsb_generator import ADSBTransmitter
+
+tx = ADSBTransmitter(seed=42)
+
+clean, transmitted, params = tx.transmit(0xDEADBEEF)
+```
 
 ---
 
@@ -347,7 +388,7 @@ Static utility class providing ADS-B encoding algorithms.
 
 ## Distribution Format
 
-All configurable distributions use the format `[[min_val, max_val, weight], ...]` where weights for a given parameter must sum to `1.0` (+/- 0.01 tolerance). Keys can be enum members or their string values (e.g., `ChannelParams.SNR_DB` or `"snr_db"`).
+All configurable distributions use the format `[[min_val, max_val, weight], ...]` where weights for a given parameter must sum to `1.0` (+/- 0.01 tolerance). Keys can be enum members.
 
 ## License
 

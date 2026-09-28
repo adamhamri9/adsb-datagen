@@ -2,7 +2,7 @@ import random
 import numpy as np
 from dataclasses import dataclass
 from .message import ADSBMessage
-from .encoder import ADSBEncoder
+from .transmitter import ADSBTransmitter
 from .channel import ADSBChannel
 from .types import MissingPolicy, MessageType, TXParams, ChannelParams
 
@@ -13,6 +13,7 @@ class ADSBSample:
     message_type: MessageType
 
     clean_signal: np.ndarray
+    transmitted_signal: np.ndarray
     tx_params: dict[TXParams, float]
 
     channel_signal: np.ndarray
@@ -55,7 +56,7 @@ class ADSBGenerator():
         self._initial_sample_rate = sample_rate
 
         self.builder = ADSBMessage(message_type_probs, self._seed)
-        self.encoder = ADSBEncoder(sample_rate, tx_params_distributions, self._seed)
+        self.transmitter = ADSBTransmitter(sample_rate, tx_params_distributions, self._seed)
         self.channel = ADSBChannel(sample_rate, channel_params_distributions, self._seed)
 
         self._buffer: list[ADSBSample] = []
@@ -68,9 +69,9 @@ class ADSBGenerator():
 
     def configure(self, message_type_probs: dict[MessageType, float] | None = None , tx_params_distributions: dict[TXParams, list[list[float]]] | None = None,
                  channel_params_distributions: dict[ChannelParams, list[list[float]]] | None = None, sample_rate: float  | None = None, seed: int | None = None, update_initial: bool = False) -> None:
-        """Update ADSBMessage, ADSBEncoder, and ADSBChannel configurations."""
+        """Update ADSBMessage, ADSBTransmitter, and ADSBChannel configurations."""
         self.builder.configure(message_type_probs, seed, update_initial)
-        self.encoder.configure(sample_rate, tx_params_distributions, seed, update_initial)
+        self.transmitter.configure(sample_rate, tx_params_distributions, seed, update_initial)
         self.channel.configure(sample_rate, channel_params_distributions, seed, update_initial)
         self.sample_rate = sample_rate
         self._initial_sample_rate = sample_rate if update_initial else self._initial_sample_rate
@@ -84,7 +85,7 @@ class ADSBGenerator():
             tx_values: Required when policy is CONSTANTS. Maps each TXParams key to its constant value.
             channel_values: Required when policy is CONSTANTS. Maps each ChannelParams key to its constant value.
         """
-        self.encoder.fill_missing(policy, tx_values)
+        self.transmitter.fill_missing(policy, tx_values)
         self.channel.fill_missing(policy, channel_values)
 
     def generate(self, n: int = 1) -> list[ADSBSample] | None:
@@ -96,14 +97,15 @@ class ADSBGenerator():
         for _ in range(n):
             message, message_type = self.builder.build()
 
-            clean_signal, tx_params = self.encoder.encode(message)
+            clean_signal, transmitted_signal, tx_params = self.transmitter.transmit(message)
 
-            channel_signal, channel_params = self.channel.apply(clean_signal)
+            channel_signal, channel_params = self.channel.apply(transmitted_signal)
 
             sample = ADSBSample(
                 message=message,
                 message_type=message_type,
                 clean_signal=clean_signal,
+                transmitted_signal=transmitted_signal,
                 tx_params=tx_params,
                 channel_signal=channel_signal,
                 channel_params=channel_params,
@@ -181,7 +183,7 @@ class ADSBGenerator():
                 for sample_key, sample in data_dict.items():
                     row = (
                         [sample_key]
-                        + [v for k, v in sample.items() if k not in ("clean_signal", "channel_signal", "tx_params", "channel_params")]
+                        + [v for k, v in sample.items() if k not in ("clean_signal", "transmitted_signal", "channel_signal", "tx_params", "channel_params")]
                         + list(sample["tx_params"].values())
                         + list(sample["channel_params"].values())
                     )
@@ -200,7 +202,7 @@ class ADSBGenerator():
                         {
                             sample_key: {
                                 k: v for k, v in sample.items() 
-                                if k not in ("clean_signal", "channel_signal")
+                                if k not in ("clean_signal", "transmitted_signal", "channel_signal")
                             }
                         }, 
                         f, 
@@ -216,7 +218,7 @@ class ADSBGenerator():
                 for sample_key, sample in data_dict.items():
                     filtered_sample = {
                         k: v for k, v in sample.items() 
-                        if k not in ("clean_signal", "channel_signal")
+                        if k not in ("clean_signal", "transmitted_signal", "channel_signal")
                     }
                     f.write(json.dumps({sample_key: filtered_sample}, separators=(',', ':')) + '\n')
 
@@ -234,7 +236,8 @@ class ADSBGenerator():
         return {
             "message": sample.message,
             "message_type": sample.message_type.value,
-            "clean_signal": sample.clean_signal,   
+            "clean_signal": sample.clean_signal,
+            "transmitted_signal": sample.transmitted_signal,   
             "channel_signal": sample.channel_signal, 
             "tx_params": {key.value: val for key, val in sample.tx_params.items()},
             "channel_params": {key.value: val for key, val in sample.channel_params.items()}
@@ -258,13 +261,13 @@ class ADSBGenerator():
     def reset(self) -> None:
         self.sample_rate = self._initial_sample_rate
         self.builder.reset()
-        self.encoder.reset()
+        self.transmitter.reset()
         self.channel.reset()
 
     def clone(self, seed: int | None = None):
         return ADSBGenerator(
             message_type_probs=self.builder.message_type_probs,
-            tx_params_distributions=self.encoder.tx_params_dists,
+            tx_params_distributions=self.transmitter.tx_params_dists,
             channel_params_distributions=self.channel.channel_params_dists,
             sample_rate=self.sample_rate,
             seed=seed if seed is not None else self._seed,
