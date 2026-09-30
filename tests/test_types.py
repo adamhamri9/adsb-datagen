@@ -1,6 +1,7 @@
 """Enum definition tests for TXParams, ChannelParams, and MessageType."""
 
-from src.adsb_generator.types import TXParams, ChannelParams, MessageType
+import numpy as np
+from src.adsb_generator.types import TXParams, ChannelParams, MessageType, ADSBSample
 
 
 class TestTXParams:
@@ -65,3 +66,94 @@ class TestMessageType:
     def test_all_types_are_unique(self):
         values = [t.value for t in MessageType]
         assert len(values) == len(set(values))
+
+    
+class TestADSBSample:
+    def test_has_message_field(self):
+        sample = ADSBSample(
+            message=123,
+            message_type=MessageType.AIRBORNE_POSITION,
+            clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=np.array([], dtype=np.complex64),
+            tx_params={TXParams.AMPLITUDE: 1.0},
+            channel_signal=np.array([], dtype=np.complex64),
+            channel_params={ChannelParams.SNR_DB: 15.0},
+        )
+        assert sample.message == 123
+
+    def test_has_message_type_field(self):
+        sample = ADSBSample(
+            message=0,
+            message_type=MessageType.AIRBORNE_VELOCITY,
+            clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=np.array([], dtype=np.complex64),
+            tx_params={},
+            channel_signal=np.array([], dtype=np.complex64),
+            channel_params={},
+        )
+        assert sample.message_type == MessageType.AIRBORNE_VELOCITY
+
+    def test_has_clean_signal(self):
+        sig = np.ones(10, dtype=np.complex64)
+        sample = ADSBSample(
+            message=0,
+            message_type=MessageType.IDENTIFICATION,
+            clean_signal=sig,
+            transmitted_signal=np.array([], dtype=np.complex64),
+            tx_params={},
+            channel_signal=np.array([], dtype=np.complex64),
+            channel_params={},
+        )
+        np.testing.assert_array_equal(sample.clean_signal, sig)
+
+    def test_has_channel_signal(self):
+        sig = np.ones(10, dtype=np.complex64)
+        sample = ADSBSample(
+            message=0,
+            message_type=MessageType.IDENTIFICATION,
+            clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=np.array([], dtype=np.complex64),
+            tx_params={},
+            channel_signal=sig,
+            channel_params={},
+        )
+        np.testing.assert_array_equal(sample.channel_signal, sig)
+
+    def test_has_tx_params(self):
+        tx = {TXParams.AMPLITUDE: 0.5}
+        sample = ADSBSample(
+            message=0,
+            message_type=MessageType.IDENTIFICATION,
+            clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=np.array([], dtype=np.complex64),
+            tx_params=tx,
+            channel_signal=np.array([], dtype=np.complex64),
+            channel_params={},
+        )
+        assert sample.tx_params == tx
+
+    def test_has_channel_params(self):
+        ch = {ChannelParams.SNR_DB: 20.0}
+        sample = ADSBSample(
+            message=0,
+            message_type=MessageType.IDENTIFICATION,
+            clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=np.array([], dtype=np.complex64),
+            tx_params={},
+            channel_signal=np.array([], dtype=np.complex64),
+            channel_params=ch,
+        )
+        assert sample.channel_params == ch
+
+    def test_has_transmitted_signal(self):
+        sig = np.ones(10, dtype=np.complex64)
+        sample = ADSBSample(
+            message=0,
+            message_type=MessageType.IDENTIFICATION,
+            clean_signal=np.array([], dtype=np.complex64),
+            transmitted_signal=sig,
+            tx_params={},
+            channel_signal=np.array([], dtype=np.complex64),
+            channel_params={},
+        )
+        np.testing.assert_array_equal(sample.transmitted_signal, sig)
