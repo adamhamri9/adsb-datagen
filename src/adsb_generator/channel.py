@@ -1,6 +1,5 @@
 import random
 import numpy as np
-from enum import Enum
 from .types import MissingPolicy, ChannelParams
 
 class ADSBChannel:

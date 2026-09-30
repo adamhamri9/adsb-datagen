@@ -1,6 +1,5 @@
 import random
 import string
-from enum import Enum
 from .algorithms import ADSBAlgorithms
 from .types import MessageType
 
