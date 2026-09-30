@@ -1,4 +1,6 @@
+import numpy as np
 from enum import Enum
+from dataclasses import dataclass
 
 class MessageType(Enum):
     """Supported Automatic Dependent Surveillance-Broadcast (ADS-B) message types."""
@@ -32,3 +34,16 @@ class MissingPolicy(Enum):
     IGNORE = "ignore"
     DEFAULTS = "defaults"
     CONSTANTS = "constant"
+
+@dataclass
+class ADSBSample:
+    """A single ADS-B sample containing the raw message, encoded signal, and impaired signal."""
+    message: int
+    message_type: MessageType
+
+    clean_signal: np.ndarray
+    transmitted_signal: np.ndarray
+    tx_params: dict[TXParams, float]
+
+    channel_signal: np.ndarray
+    channel_params: dict[ChannelParams, float]

@@ -1,23 +1,9 @@
 import random
 import numpy as np
-from dataclasses import dataclass
 from .message import ADSBMessage
 from .transmitter import ADSBTransmitter
 from .channel import ADSBChannel
-from .types import MissingPolicy, MessageType, TXParams, ChannelParams
-
-@dataclass
-class ADSBSample:
-    """A single ADS-B sample containing the raw message, encoded signal, and impaired signal."""
-    message: int
-    message_type: MessageType
-
-    clean_signal: np.ndarray
-    transmitted_signal: np.ndarray
-    tx_params: dict[TXParams, float]
-
-    channel_signal: np.ndarray
-    channel_params: dict[ChannelParams, float]
+from .types import MissingPolicy, MessageType, TXParams, ChannelParams, ADSBSample
 
 class ADSBGenerator():
     """

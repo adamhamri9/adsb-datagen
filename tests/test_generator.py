@@ -1,6 +1,6 @@
 import numpy as np
-from src.adsb_generator.generator import ADSBSample, ADSBGenerator
-from src.adsb_generator.types import TXParams, ChannelParams, MessageType
+from src.adsb_generator.generator import ADSBGenerator
+from src.adsb_generator.types import TXParams, ChannelParams, MessageType, ADSBSample
 
 
 class TestADSBSample:
